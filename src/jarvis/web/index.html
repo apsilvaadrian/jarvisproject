@@ -1,0 +1,554 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>J.A.R.V.I.S.</title>
+  <link rel="icon" type="image/png" href="/static/icon.png">
+  <link rel="shortcut icon" href="/static/icon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="bg-grid"></div>
+  <div class="scanlines"></div>
+
+  <!-- Tela de inicialização (o clique libera áudio/voz no navegador) -->
+  <div id="boot" class="boot">
+    <div class="boot-inner">
+      <div class="boot-logo">J.A.R.V.I.S.</div>
+      <div class="boot-sub">JUST A RATHER VERY INTELLIGENT SYSTEM</div>
+      <pre id="bootLog" class="boot-log"></pre>
+      <button id="bootBtn" class="boot-btn" disabled>INICIALIZANDO…</button>
+    </div>
+  </div>
+
+  <header class="topbar">
+    <div class="brand">
+      <img src="/static/icon.png" class="brand-logo" alt="">
+      <div class="brand-text">
+        <span class="brand-title">J.A.R.V.I.S.</span>
+        <span class="brand-sub">COMMAND CENTER</span>
+      </div>
+    </div>
+    <div class="clock">
+      <span id="clockDate">--</span>
+      <span id="clockTime">--:--:--</span>
+    </div>
+    <nav class="tabs" id="tabs">
+      <button type="button" class="tab on" data-page="command">COMMAND CENTER</button>
+      <button type="button" class="tab" data-page="core">AI CORE</button>
+      <button type="button" class="tab" data-page="voice">AI VOICE</button>
+      <button type="button" class="tab" data-page="apps">INTEGRAÇÕES</button>
+      <button type="button" class="tab" id="settingsBtn">CONFIGURAÇÕES</button>
+    </nav>
+    <div class="top-right">
+      <div class="sys-status" id="sysStatus" title="Estado geral do PC">
+        <i></i><div><small>SYSTEM STATUS</small><b id="sysStatusText">INICIANDO…</b></div>
+      </div>
+      <button type="button" class="icon-top" id="bellBtn" title="Alertas"><svg viewBox="0 0 24 24"><path d="M12 22a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 12 22Zm7-6V11a7 7 0 0 0-5.5-6.84V3a1.5 1.5 0 0 0-3 0v1.16A7 7 0 0 0 5 11v5l-2 2v1h18v-1l-2-2Z"/></svg><span id="bellCount" class="badge" hidden>0</span></button>
+      <button type="button" class="icon-top" id="appsBtn" title="Apps: WhatsApp, Instagram e Facebook aqui dentro"><svg viewBox="0 0 24 24"><path d="M4 4h7v7H4V4Zm9 0h7v7h-7V4ZM4 13h7v7H4v-7Zm12.5 0a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7Z"/></svg><span id="appsCount" class="badge" hidden>0</span></button>
+      <button type="button" class="icon-top" id="cardsBtn" title="Cards: mostrar ocultos e restaurar o layout"><svg viewBox="0 0 24 24"><path d="M3 3h8v8H3V3Zm2 2v4h4V5H5Zm8-2h8v8h-8V3Zm2 2v4h4V5h-4ZM3 13h8v8H3v-8Zm2 2v4h4v-4H5Zm8-2h8v8h-8v-8Zm2 2v4h4v-4h-4Z"/></svg></button>
+      <label class="brain-pick" title="Cérebro em uso"><select id="brainSelect"></select></label>
+      <span id="link" class="link off" title="Conexão com o núcleo"><i></i><b>OFFLINE</b></span>
+      <div class="commander"><div><small>COMANDANTE</small><b id="cmdName">—</b></div><span class="avatar" id="cmdAvatar">J</span></div>
+    </div>
+    <div id="cardsMenu" class="dropdown" hidden></div>
+    <div id="bellMenu" class="dropdown bell-menu" hidden></div>
+  </header>
+
+  <!-- ===================================================================== COMMAND CENTER -->
+  <main class="page hud" id="page-command">
+    <!-- Colunas de cards: a ordem real vem do layout salvo (data/cards.json); arraste pelo título -->
+    <section class="zone" data-zone="esquerda">
+      <!-- Cards de contexto (trabalho, notícias, clima): substituem os não fixados até você voltar -->
+      <div id="ctxLeft" class="ctx-area" hidden></div>
+      <div class="card" data-card="visao">
+        <h3>VISÃO GERAL</h3>
+        <div class="ov">
+          <dl class="ov-list">
+            <dt>Uso da CPU</dt><dd id="ovCpu">—</dd>
+            <dt>Memória</dt><dd id="ovMem">—</dd>
+            <dt>Disco</dt><dd id="ovDisk">—</dd>
+            <dt>Rede</dt><dd id="ovNet">—</dd>
+            <dt>Temperatura</dt><dd id="ovTemp">—</dd>
+            <dt>Ligado há</dt><dd id="ovUp">—</dd>
+          </dl>
+          <div class="health" id="ovHealth">
+            <svg viewBox="0 0 120 120"><circle class="g-bg" cx="60" cy="60" r="50"/><circle class="g-fg" cx="60" cy="60" r="50"/></svg>
+            <div class="health-val"><b>--</b><small>%</small><span>SAÚDE</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="card" data-card="cpu">
+        <h3>PROCESSADOR</h3>
+        <div class="gauge-row"><div class="gauge" id="gCpu"><svg viewBox="0 0 120 120"><circle class="g-bg" cx="60" cy="60" r="50"/><circle class="g-fg" cx="60" cy="60" r="50"/></svg><div class="g-val"><b>0</b><small>%</small></div><div class="g-lbl">CPU</div></div><div class="gauge" id="gTemp"><svg viewBox="0 0 120 120"><circle class="g-bg" cx="60" cy="60" r="50"/><circle class="g-fg" cx="60" cy="60" r="50"/></svg><div class="g-val"><b>0</b><small>°C</small></div><div class="g-lbl">TEMP</div></div></div>
+        <canvas id="sparkCpu" class="spark"></canvas>
+        <div id="cores" class="cores"></div>
+        <dl class="kv" id="cpuKv"></dl>
+      </div>
+      <div class="card" data-card="memoria">
+        <h3>MEMÓRIA</h3>
+        <div class="gauge-row"><div class="gauge" id="gRam"><svg viewBox="0 0 120 120"><circle class="g-bg" cx="60" cy="60" r="50"/><circle class="g-fg" cx="60" cy="60" r="50"/></svg><div class="g-val"><b>0</b><small>%</small></div><div class="g-lbl">RAM</div></div><div class="gauge" id="gSwap"><svg viewBox="0 0 120 120"><circle class="g-bg" cx="60" cy="60" r="50"/><circle class="g-fg" cx="60" cy="60" r="50"/></svg><div class="g-val"><b>0</b><small>%</small></div><div class="g-lbl">SWAP</div></div></div>
+        <canvas id="sparkRam" class="spark"></canvas>
+        <dl class="kv" id="ramKv"></dl>
+      </div>
+      <div class="card" id="gpuCard" data-card="gpu" hidden>
+        <h3>GPU</h3>
+        <div id="gpus"></div>
+      </div>
+      <div class="card" data-card="agenda">
+        <h3>AGENDA <span class="muted" id="agendaSub"></span></h3>
+        <div id="agendaBody" class="card-body"><p class="ctx-muted">Carregando…</p></div>
+      </div>
+    </section>
+
+    <!-- Centro: núcleo (reator arc) -->
+    <section class="center" id="center">
+      <div class="core-wrap">
+        <canvas id="core"></canvas>
+        <div class="core-label">
+          <span id="coreState">EM ESPERA</span>
+        </div>
+      </div>
+      <!-- Quadro de letra: acompanha a música que está tocando no Spotify -->
+      <div id="lyrics" class="lyrics" hidden>
+        <div class="ly-head">
+          <span class="ly-title"><b id="lyTitle">LETRA</b> <small id="lyArtist" class="muted"></small></span>
+          <span id="lyMode" class="tag"></span>
+          <button type="button" id="lyClose" class="ghost mini" title="Fechar a letra">✕</button>
+        </div>
+        <div id="lyBody" class="ly-body"></div>
+      </div>
+      <!-- Card em foco: qualquer card trazido para o centro, maior (por você ou pelo JARVIS) -->
+      <div id="foco" class="lyrics foco" hidden>
+        <div class="ly-head">
+          <span class="ly-title"><b id="focoTitulo">FOCO</b> <small class="muted">em foco</small></span>
+          <button type="button" id="focoFechar" class="ghost mini" title="Devolver o card ao lugar">✕</button>
+        </div>
+        <div id="focoBody" class="foco-body"></div>
+      </div>
+      <!-- Navegador interno: notícias e links abertos dentro do JARVIS -->
+      <div id="web" class="lyrics web" hidden>
+        <div class="ly-head">
+          <button type="button" id="webVoltar" class="ghost mini" title="Voltar">◂</button>
+          <span class="ly-title"><b id="webTitulo">NAVEGADOR</b> <small id="webSite" class="muted"></small></span>
+          <span class="web-modos">
+            <button type="button" class="ghost mini" data-modo="leitura" title="Só o texto da página, no visual do JARVIS">LEITURA</button>
+            <button type="button" class="ghost mini" data-modo="pagina" title="O site original (sem scripts)">PÁGINA</button>
+          </span>
+          <button type="button" id="webCard" class="ghost mini" title="Deixar num card ao lado dos outros">⧉</button>
+          <button type="button" id="webAmpliar" class="ghost mini" title="Ampliar / reduzir">⤢</button>
+          <button type="button" id="webFora" class="ghost mini" title="Abrir no seu navegador">↗</button>
+          <button type="button" id="webFechar" class="ghost mini" title="Fechar">✕</button>
+        </div>
+        <div id="webBody" class="web-body"></div>
+      </div>
+      <!-- Apps da web (WhatsApp, Instagram, Facebook): a janela do app é encaixada em cima do corpo deste painel -->
+      <div id="appw" class="lyrics web appw" hidden>
+        <div class="ly-head">
+          <span class="web-modos" id="appwAbas">
+            <button type="button" class="ghost mini" data-appw="whatsapp">WHATSAPP <i data-cont="whatsapp"></i></button>
+            <button type="button" class="ghost mini" data-appw="instagram">INSTAGRAM <i data-cont="instagram"></i></button>
+            <button type="button" class="ghost mini" data-appw="facebook">FACEBOOK <i data-cont="facebook"></i></button>
+            <button type="button" class="ghost mini" data-appw="youtube">YOUTUBE</button>
+            <button type="button" class="ghost mini" data-appw="navegador">NAVEGADOR</button>
+          </span>
+          <span class="ly-title"></span>
+          <button type="button" id="appwCard" class="ghost mini" title="Deixar num card ao lado dos outros (continua aberto enquanto você faz outra coisa)">⧉ CARD</button>
+          <button type="button" id="appwAmpliar" class="ghost mini" title="Ampliar / reduzir">⤢</button>
+          <button type="button" id="appwFechar" class="ghost mini" title="Fechar">✕</button>
+        </div>
+        <form id="appwNav" class="appw-nav" hidden>
+          <button type="button" class="ct" data-nav="voltar" title="Voltar"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+          <button type="button" class="ct" data-nav="avancar" title="Avançar"><svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></button>
+          <button type="button" class="ct" data-nav="recarregar" title="Recarregar"><svg viewBox="0 0 24 24"><path d="M19 12a7 7 0 1 1-2.05-4.95M19 4v4h-4"/></svg></button>
+          <input id="appwEndereco" autocomplete="off" placeholder="Pesquisar no Google ou digitar um endereço" aria-label="Endereço ou pesquisa">
+        </form>
+        <div id="appwBody" class="web-body appw-body"><p class="ly-msg web-msg" id="appwMsg"></p></div>
+      </div>
+      <div id="caption" class="caption"></div>
+      <div id="interim" class="interim"></div>
+      <div class="diag" id="diag">
+        <div><small>MODELO DE IA</small><b id="dgBrain">—</b></div>
+        <div><small>PROVEDORES</small><b id="dgProv">—</b></div>
+        <div><small>VOZ</small><b id="dgVoice">—</b></div>
+        <div><small>MEMÓRIA</small><b id="dgMem">—</b></div>
+        <div><small>ATIVO HÁ</small><b id="dgUp">—</b></div>
+      </div>
+    </section>
+
+    <section class="zone" data-zone="direita">
+      <div id="ctxRight" class="ctx-area" hidden></div>
+      <!-- Player do Spotify: aparece quando algo está tocando -->
+      <div class="card music-card" id="musicCard" data-card="musica" hidden>
+        <h3>SPOTIFY <span class="muted" id="mcDevice"></span></h3>
+        <div class="mc-top">
+          <a class="mc-cover" id="mcLink" target="_blank" rel="noopener" title="Abrir no Spotify">
+            <img id="mcImg" alt="">
+            <span class="mc-eq" id="mcEq"><i></i><i></i><i></i><i></i></span>
+          </a>
+          <div class="mc-info">
+            <b id="mcTitle">—</b>
+            <span id="mcArtist"></span>
+            <small id="mcAlbum"></small>
+          </div>
+        </div>
+        <div class="mc-progress">
+          <span id="mcPos">0:00</span>
+          <div class="bar mc-bar" id="mcBar" title="Clique para pular para esse ponto"><i id="mcFill"></i></div>
+          <span id="mcDur">0:00</span>
+        </div>
+        <div class="mc-controls">
+          <button type="button" id="mcShuffle" class="mc-btn" title="Aleatório"><svg viewBox="0 0 24 24"><path d="M17 3h4v4h-2V6.4l-4.3 4.3-1.4-1.4L17.6 5H17V3ZM3 6h4.6l10 10H19v-1h2v4h-4v-2h.6L8.4 8H3V6Zm0 10h4.6l2.3-2.3 1.4 1.4L8.4 18H3v-2Z"/></svg></button>
+          <button type="button" id="mcPrev" class="mc-btn" title="Anterior"><svg viewBox="0 0 24 24"><path d="M6 6h2v12H6V6Zm3.5 6L18 6v12l-8.5-6Z"/></svg></button>
+          <button type="button" id="mcPlay" class="mc-btn mc-play" title="Tocar/Pausar"><svg viewBox="0 0 24 24"><path id="mcPlayIcon" d="M8 5v14l11-7L8 5Z"/></svg></button>
+          <button type="button" id="mcNext" class="mc-btn" title="Próxima"><svg viewBox="0 0 24 24"><path d="M16 6h2v12h-2V6ZM6 18V6l8.5 6L6 18Z"/></svg></button>
+          <button type="button" id="mcRepeat" class="mc-btn" title="Repetir"><svg viewBox="0 0 24 24"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7Zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4Z"/></svg></button>
+          <button type="button" id="mcLyrics" class="mc-btn" title="Letra (acompanha a música)"><svg viewBox="0 0 24 24"><path d="M3 5h13v2H3V5Zm0 5h13v2H3v-2Zm0 5h8v2H3v-2Zm15-5h4v2h-2v7a3 3 0 1 1-2-2.83V10Z"/></svg></button>
+        </div>
+        <div class="mc-volume">
+          <svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3Zm13.5 3A4.5 4.5 0 0 0 14 8v8a4.5 4.5 0 0 0 2.5-4Z"/></svg>
+          <input type="range" id="mcVol" min="0" max="100" value="50" aria-label="Volume do Spotify">
+        </div>
+      </div>
+      <div class="card" data-card="alertas">
+        <h3>ALERTAS <span class="muted" id="alertsSub"></span></h3>
+        <div id="alertsBody" class="card-body"><p class="ctx-muted">Carregando…</p></div>
+      </div>
+      <div class="card" data-card="conversa">
+        <h3>CONVERSA</h3>
+        <div id="log" class="log"></div>
+      </div>
+      <div class="card" data-card="processos">
+        <h3>PROCESSOS <span class="muted" id="procCount"></span></h3>
+        <table class="procs"><thead><tr><th>PID</th><th>NOME</th><th>CPU</th><th>MB</th></tr></thead><tbody id="procs"></tbody></table>
+      </div>
+      <div class="card" data-card="armazenamento">
+        <h3>ARMAZENAMENTO</h3>
+        <div id="disks"></div>
+      </div>
+    </section>
+
+    <section class="zone" data-zone="extra">
+      <div class="card" data-card="acoes">
+        <h3>AÇÕES RÁPIDAS</h3>
+        <div class="quick" id="quick">
+          <button type="button" class="qa" data-acao="ouvir"><svg viewBox="0 0 24 24"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-2.08A7 7 0 0 0 19 12h-2Z"/></svg><span>COMANDO DE VOZ</span></button>
+          <button type="button" class="qa" data-pedido="atualizações do trabalho"><span>ATUALIZAÇÕES DO TRABALHO</span></button>
+          <button type="button" class="qa" data-pedido="quais as notícias de hoje?"><span>NOTÍCIAS DO DIA</span></button>
+          <button type="button" class="qa" data-pedido="qual a previsão do tempo?"><span>PREVISÃO DO TEMPO</span></button>
+          <button type="button" class="qa" data-pedido="qual a minha agenda de hoje?"><span>AGENDA DE HOJE</span></button>
+          <button type="button" class="qa" data-pedido="gera o status report"><span>GERAR STATUS REPORT</span></button>
+          <button type="button" class="qa" data-pedido="status do sistema"><span>DIAGNÓSTICO DO PC</span></button>
+          <button type="button" class="qa stop" data-acao="parar"><span>PARAR TUDO</span></button>
+        </div>
+      </div>
+      <div class="card" data-card="cerebros">
+        <h3>CÉREBROS <span class="muted" id="llmSub"></span></h3>
+        <div id="llmBody" class="card-body"></div>
+      </div>
+      <div class="card" data-card="servicos">
+        <h3>SERVIÇOS CONECTADOS <span class="muted" id="svcSub"></span></h3>
+        <div id="servicesBody" class="card-body"></div>
+      </div>
+      <div class="card" data-card="whatsapp">
+        <h3>WHATSAPP <span class="muted" id="waSub"></span></h3>
+        <div id="waBody" class="card-body"></div>
+      </div>
+      <div class="card" data-card="instagram">
+        <h3>INSTAGRAM <span class="muted" id="igSub"></span></h3>
+        <div id="igBody" class="card-body"></div>
+      </div>
+      <div class="card" data-card="facebook">
+        <h3>FACEBOOK <span class="muted" id="fbSub"></span></h3>
+        <div id="fbBody" class="card-body"></div>
+      </div>
+      <div class="card" data-card="email">
+        <h3>E-MAIL <span class="muted" id="emailSub"></span></h3>
+        <div id="emailBody" class="card-body"></div>
+      </div>
+      <div class="card" data-card="rede">
+        <h3>REDE</h3>
+        <div class="net">
+          <div><small>▲ UPLOAD</small><b id="netUp">0</b></div>
+          <div><small>▼ DOWNLOAD</small><b id="netDown">0</b></div>
+        </div>
+        <canvas id="sparkNet" class="spark"></canvas>
+      </div>
+      <div class="card" data-card="sistema">
+        <h3>SISTEMA</h3>
+        <dl class="kv" id="sysKv"></dl>
+      </div>
+      <div class="card" data-card="github">
+        <h3>GITHUB <span class="muted" id="githubSub"></span></h3>
+        <div id="githubBody" class="card-body"></div>
+      </div>
+      <div class="card" data-card="docker">
+        <h3>DOCKER <span class="muted" id="dockerSub"></span></h3>
+        <div id="dockerBody" class="card-body"></div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ===================================================================== AI CORE -->
+  <main class="page subpage" id="page-core" hidden>
+    <section class="hero">
+      <div class="hero-text">
+        <span class="pill ok" id="coreReady">● PRONTO PARA CONVERSAR</span>
+        <small class="eyebrow">CENTRAL DE IA</small>
+        <h1 id="coreTitle">—</h1>
+        <p>Escolha o cérebro do JARVIS: chaves de API, as suas assinaturas (Claude, ChatGPT) ou modelos locais no Ollama.
+           Se o escolhido falhar, o modo offline assume na hora.</p>
+        <div class="hero-actions">
+          <button type="button" class="send" id="coreKeys">CONFIGURAR CHAVES</button>
+          <a class="ghost btn-link" href="https://console.groq.com/keys" target="_blank" rel="noopener">CHAVE GRÁTIS DO GROQ ↗</a>
+        </div>
+      </div>
+      <div class="hero-side">
+        <div class="stat-box"><small>MODELO ATIVO</small><b id="coreModel">—</b></div>
+        <div class="stat-box"><small>PROVEDORES PRONTOS</small><b id="coreCount">—</b></div>
+        <div class="stat-box"><small>RESERVA</small><b>Offline (regras locais)</b></div>
+      </div>
+    </section>
+    <h2 class="section-title">PROVEDORES</h2>
+    <div class="prov-grid" id="coreGrid"></div>
+  </main>
+
+  <!-- ===================================================================== AI VOICE -->
+  <main class="page subpage" id="page-voice" hidden>
+    <section class="hero">
+      <div class="hero-text">
+        <span class="pill ok" id="vcReady">● VOZ PRONTA</span>
+        <small class="eyebrow">VOZ</small>
+        <h1>Conversa por voz</h1>
+        <p>Fale com o JARVIS sem as mãos: diga "Jarvis" e o pedido. Quando ele pergunta algo, o microfone abre sozinho
+           para a resposta. Escolha abaixo a voz com que ele responde.</p>
+        <div class="hero-actions">
+          <button type="button" class="send" id="vcTestVoice">OUVIR A VOZ</button>
+          <button type="button" class="ghost" id="vcTestMic">TESTAR MICROFONE</button>
+        </div>
+        <div class="mic-meter" id="micMeter"></div>
+      </div>
+      <div class="hero-side">
+        <div class="stat-box"><small>OUVINDO</small><b id="vcListen">—</b></div>
+        <div class="stat-box"><small>FALANDO COM</small><b id="vcSpeak">—</b></div>
+        <div class="stat-box"><small>PALAVRA DE ATIVAÇÃO</small><b id="vcWake">—</b></div>
+      </div>
+    </section>
+    <h2 class="section-title">CONVERSA</h2>
+    <div class="prov conversa-box">
+      <div class="prov-head"><span class="logo-tile">⟲</span><div><b>Conversa contínua</b>
+        <small>Depois de cada resposta, ele continua ouvindo sem precisar dizer "Jarvis"</small></div></div>
+      <div class="prov-model">OUVIR POR
+        <select id="vcConversa">
+          <option value="0">Desligado</option><option value="5">5 segundos</option><option value="8">8 segundos</option>
+          <option value="12">12 segundos</option><option value="20">20 segundos</option>
+        </select>
+      </div>
+      <label class="check-row"><input type="checkbox" id="vcInterromper"> Posso interromper o JARVIS enquanto ele fala</label>
+      <p>Se você não falar nada nesse tempo, ele volta a esperar ser chamado pelo nome. Com caixas de som, ele ignora o que
+        for parecido com a própria fala; com fone, a interrupção funciona ainda melhor.</p>
+    </div>
+    <h2 class="section-title">VOZ DO JARVIS</h2>
+    <div class="prov-grid" id="voiceGrid">
+      <div class="prov" data-voz="elevenlabs"><div class="prov-head"><span class="logo-tile">11</span><div><b>ElevenLabs</b><small>Nuvem · sua voz clonada</small></div><span class="tag warn">PREMIUM</span></div>
+        <p>A voz mais natural e rápida (frases em ~1 s). Usa a sua voz clonada no ElevenLabs.</p>
+        <div class="prov-actions"><button type="button" class="send" data-usar-voz="elevenlabs">USAR ESTA</button><button type="button" class="ghost" data-config-voz>CONFIGURAR</button></div></div>
+      <div class="prov" data-voz="clonada"><div class="prov-head"><span class="logo-tile">◉</span><div><b>Minha voz (local)</b><small>XTTS · neste PC</small></div><span class="tag ok">GRÁTIS</span></div>
+        <p>Sua voz clonada rodando no próprio PC, sem internet. Mais lenta; precisa do servidor de voz instalado.</p>
+        <div class="prov-actions"><button type="button" class="send" data-usar-voz="clonada">USAR ESTA</button></div></div>
+      <div class="prov" data-voz="navegador"><div class="prov-head"><span class="logo-tile">≋</span><div><b>Navegador</b><small>Microsoft/Google · pt-BR</small></div><span class="tag">PADRÃO</span></div>
+        <p>A voz do Edge/Chrome. Sempre disponível, mas robótica. É a reserva se as outras falharem.</p>
+        <div class="prov-actions"><button type="button" class="send" data-usar-voz="navegador">USAR ESTA</button></div></div>
+    </div>
+  </main>
+
+  <!-- ===================================================================== INTEGRAÇÕES -->
+  <main class="page subpage" id="page-apps" hidden>
+    <section class="hero slim">
+      <div class="hero-text">
+        <small class="eyebrow">INTEGRAÇÕES</small>
+        <h1>Conecte os serviços do seu dia</h1>
+        <p>Cérebros de IA, agenda, e-mail, ferramentas de desenvolvimento, música e os apps do trabalho. Tudo opcional:
+           as chaves ficam só no arquivo .env deste PC, e você desconecta quando quiser.</p>
+      </div>
+    </section>
+    <div class="apps-grid" id="appsGrid"></div>
+  </main>
+
+  <!-- ===================================================================== barra inferior -->
+  <footer class="bottombar">
+    <div class="bb-left">
+      <div class="bb-item"><img src="/static/icon.png" alt=""><div><small>JARVIS OS</small><b>v2.0</b></div></div>
+      <div class="bb-item" id="bbWeather" title="Previsão do tempo (clique para ver)"><span class="bb-ico" id="bbWxIcon">☁️</span><div><small>CLIMA</small><b id="bbWx">—</b></div></div>
+      <div class="bb-item"><svg viewBox="0 0 24 24"><path d="M12 18.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3ZM12 14c1.9 0 3.6.8 4.8 2l-1.5 1.5A4.7 4.7 0 0 0 12 16a4.7 4.7 0 0 0-3.3 1.5L7.2 16A6.8 6.8 0 0 1 12 14Zm0-4.5c3.2 0 6 1.3 8 3.3l-1.4 1.5A9 9 0 0 0 12 11.5a9 9 0 0 0-6.6 2.8L4 12.8a11 11 0 0 1 8-3.3ZM12 5c4.4 0 8.4 1.8 11.3 4.7l-1.4 1.4A14 14 0 0 0 12 7a14 14 0 0 0-9.9 4.1L.7 9.7A16 16 0 0 1 12 5Z"/></svg><div><small>REDE</small><b id="bbNet">—</b></div></div>
+    </div>
+    <form id="chatForm" class="talk">
+      <button type="button" id="micBtn" class="mic talk-btn" title="Falar (ou aperte Espaço fora do campo de texto)">
+        <svg viewBox="0 0 24 24"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-2.08A7 7 0 0 0 19 12h-2Z"/></svg>
+        <span class="talk-label"><b>FALAR COM O JARVIS</b><small>Clique ou diga "Jarvis"</small></span>
+      </button>
+      <div class="talk-campo">
+        <div class="talk-wave" id="talkWave"></div>
+        <input id="chatInput" autocomplete="off" aria-label="Mensagem para o JARVIS">
+      </div>
+      <button type="submit" class="send">ENVIAR</button>
+    </form>
+    <div class="toggles">
+      <label title="Ouve continuamente e responde ao ouvir 'Jarvis'"><input type="checkbox" id="wakeToggle" checked><span>MODO "JARVIS"</span></label>
+      <label title="Respostas em voz alta"><input type="checkbox" id="voiceToggle" checked><span>VOZ</span></label>
+      <button type="button" id="resetBtn" class="ghost" title="Apagar memória da conversa">LIMPAR</button>
+    </div>
+  </footer>
+
+  <!-- Confirmação de ações sensíveis -->
+  <div id="confirm" class="modal" hidden>
+    <div class="modal-box">
+      <h3>⚠ AUTORIZAÇÃO NECESSÁRIA</h3>
+      <p id="confirmText"></p>
+      <div class="modal-actions">
+        <button id="confirmYes" class="danger">CONFIRMAR</button>
+        <button id="confirmNo" class="ghost">CANCELAR</button>
+      </div>
+      <small>Você também pode dizer "confirmar" ou "cancelar".</small>
+    </div>
+  </div>
+
+  <!-- Configuração dos cérebros (chaves de API) -->
+  <div id="settings" class="modal" hidden>
+    <form id="settingsForm" class="modal-box settings-box" autocomplete="off">
+      <h3>CONFIGURAÇÕES</h3>
+      <div class="field">
+        <span>VOCÊ</span>
+        <div class="model-row">
+          <input id="pfNome" type="text" placeholder="Seu nome (o JARVIS usa de vez em quando)" maxlength="40">
+          <input id="pfTrat" type="text" placeholder="senhor" maxlength="30" class="pf-trat" title="Como ele te chama na maior parte do tempo">
+          <button type="button" id="pfSave" class="ghost mini">SALVAR</button>
+        </div>
+      </div>
+      <div class="field" id="janelaField" hidden>
+        <span>AO ABRIR O JARVIS</span>
+        <div class="voice-modes">
+          <label><input type="radio" name="janelaModo" value="cheia"> Tela cheia</label>
+          <label><input type="radio" name="janelaModo" value="maximizada"> Maximizada</label>
+          <label><input type="radio" name="janelaModo" value="janela"> Janela</label>
+        </div>
+        <small class="model-hint">Vale para a janela aberta agora e sempre que o JARVIS abrir. Na tela cheia, F11 sai e volta.</small>
+      </div>
+      <div class="field" id="navegadorField" hidden>
+        <span>NAVEGADOR DO JARVIS</span>
+        <div class="voice-modes">
+          <label><input type="radio" name="navegadorEscolha" value="auto"> Automático (Chrome, senão Edge)</label>
+          <label><input type="radio" name="navegadorEscolha" value="chrome"> Google Chrome</label>
+          <label><input type="radio" name="navegadorEscolha" value="edge"> Microsoft Edge</label>
+        </div>
+        <small class="model-hint" id="navegadorHint">Usado na janela do JARVIS e no WhatsApp Web. Ao trocar, a janela reabre no navegador escolhido
+          (na 1ª vez nele, permita o microfone de novo).</small>
+      </div>
+      <div class="field" id="flutuanteField" hidden>
+        <label class="check-row"><input type="checkbox" id="flutuanteToggle"> Janelinha flutuante quando o JARVIS estiver minimizado ou na bandeja</label>
+        <small class="model-hint">Fica por cima das outras janelas: escrever, falar, ligar/desligar a voz. Clique na esfera para abrir o JARVIS; arraste a pílula para mudar de lugar.</small>
+      </div>
+      <div class="field">
+        <label class="check-row"><input type="checkbox" id="temaApps"> Visual do JARVIS no WhatsApp, Instagram, Facebook, YouTube e Navegador (modo escuro e cores da interface)</label>
+      </div>
+      <div class="field">
+        <label class="check-row"><input type="checkbox" id="avisosVoz"> Falar quando chegar mensagem ou notificação no WhatsApp, Instagram ou Facebook (abertos no JARVIS)</label>
+      </div>
+      <div class="field" id="autostartField" hidden>
+        <label class="check-row"><input type="checkbox" id="autostartToggle"> Iniciar junto com o Windows (abre minimizado, já ouvindo "Jarvis")</label>
+      </div>
+      <div class="field">
+        <span>VOZ DO JARVIS</span>
+        <div class="voice-modes">
+          <label><input type="radio" name="voiceMode" value="elevenlabs"> ElevenLabs</label>
+          <label><input type="radio" name="voiceMode" value="clonada"> Minha voz (local)</label>
+          <label><input type="radio" name="voiceMode" value="navegador"> Navegador</label>
+        </div>
+        <p id="voiceStatus" class="key-status"></p>
+      </div>
+      <div id="elevenBox" class="sub-box" hidden>
+        <div class="field">
+          <span>CHAVE DE API DO ELEVENLABS</span>
+          <input id="elKey" type="password" spellcheck="false" placeholder="Cole aqui a chave (xi-api-key)">
+        </div>
+        <div class="field">
+          <span>VOZ</span>
+          <div class="model-row">
+            <select id="elVoice"><option value="">Cole a chave para ver as suas vozes</option></select>
+            <button type="button" id="elRefresh" class="ghost icon-btn" title="Atualizar vozes e modelos">↻</button>
+          </div>
+        </div>
+        <div class="field">
+          <span>MODELO DE VOZ</span>
+          <select id="elModel"></select>
+          <small class="model-hint">Flash: resposta mais rápida. Multilingual: mais expressivo, um pouco mais lento.</small>
+        </div>
+        <div class="row-actions">
+          <a href="https://elevenlabs.io/app/api/api-keys" target="_blank" rel="noopener" class="key-link">Onde consigo a chave?</a>
+          <button type="button" id="elSave" class="send">SALVAR VOZ</button>
+        </div>
+        <p id="elStatus" class="key-status"></p>
+      </div>
+      <div class="field">
+        <span>SPOTIFY <b id="spState" class="sp-state"></b></span>
+        <div class="sub-box">
+          <ol class="steps">
+            <li>Crie um app em <a href="https://developer.spotify.com/dashboard" target="_blank" rel="noopener" class="key-link">developer.spotify.com/dashboard</a> e marque <b>Web API</b>.</li>
+            <li>Em <b>Redirect URIs</b>, cadastre exatamente:
+              <span class="copy-row"><code id="spRedirect">http://127.0.0.1:8888/callback</code>
+              <button type="button" id="spCopy" class="ghost mini">COPIAR</button></span></li>
+            <li>Copie o <b>Client ID</b> e o <b>Client Secret</b> do app para cá.</li>
+          </ol>
+          <div class="field"><span>CLIENT ID</span><input id="spId" type="text" spellcheck="false" placeholder="32 caracteres"></div>
+          <div class="field"><span>CLIENT SECRET</span><input id="spSecret" type="password" spellcheck="false" placeholder="32 caracteres"></div>
+          <div class="row-actions">
+            <button type="button" id="spSave" class="send">SALVAR</button>
+            <button type="button" id="spConnect" class="send">CONECTAR CONTA</button>
+          </div>
+          <p id="spMsg" class="key-status"></p>
+          <small class="model-hint">Tocar e controlar músicas exige Spotify Premium. Sem isso o JARVIS ainda abre a busca no app e usa as teclas de mídia.</small>
+        </div>
+      </div>
+      <div class="field">
+        <span>CONTAS — USE O SEU PLANO (CLAUDE PRO, CHATGPT PLUS, GOOGLE)</span>
+        <div id="accountList" class="account-list"></div>
+        <small class="model-hint">O login abre no navegador pela ferramenta oficial de cada empresa. Mais lento que a API (5–12 s por resposta). PC sem Node.js e sem administrador? O INSTALAR baixa uma versão portátil na sua pasta de usuário.</small>
+      </div>
+      <div class="field"><span>CÉREBROS POR CHAVE DE API</span></div>
+      <div id="brainList" class="brain-list"></div>
+      <label class="field">
+        <span>CÉREBRO</span>
+        <select id="keyBrain"></select>
+      </label>
+      <label class="field">
+        <span>CHAVE DE API</span>
+        <input id="keyValue" type="password" placeholder="Cole aqui a sua chave" spellcheck="false">
+      </label>
+      <div class="field">
+        <span>MODELO</span>
+        <div class="model-row">
+          <select id="keyModel"></select>
+          <button type="button" id="modelRefresh" class="ghost icon-btn" title="Atualizar a lista de modelos">↻</button>
+        </div>
+        <input id="keyModelCustom" type="text" spellcheck="false" placeholder="ID exato do modelo, ex.: gemini-2.5-pro" hidden>
+        <small id="modelHint" class="model-hint"></small>
+      </div>
+      <a id="keyLink" class="key-link" target="_blank" rel="noopener">Onde consigo essa chave?</a>
+      <p id="keyStatus" class="key-status"></p>
+      <div class="modal-actions">
+        <button type="submit" id="keySave" class="send">SALVAR E ATIVAR</button>
+        <button type="button" id="keyClose" class="ghost">FECHAR</button>
+      </div>
+      <small>A chave é testada e gravada apenas no arquivo .env deste computador.</small>
+    </form>
+  </div>
+
+  <div id="toasts" class="toasts"></div>
+
+  <script src="/static/core.js"></script>
+  <script src="/static/app.js"></script>
+</body>
+</html>
