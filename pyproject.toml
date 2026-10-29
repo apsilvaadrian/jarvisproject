@@ -1,0 +1,9 @@
+[project]
+name = "jarvis"
+version = "1.0.0"
+description = "J.A.R.V.I.S. — assistente pessoal com monitoramento e controle do sistema operacional"
+requires-python = ">=3.10"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

@@ -1,0 +1,36 @@
+# Segredos
+.env
+data/.spotify_token
+.cache*
+
+# Ambiente Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Build do .exe (gerado por scripts/build_exe.ps1)
+build/
+dist/
+*.spec
+
+# Gerados em execução
+logs/
+reports/
+run/
+data/
+build_log.txt
+
+# Perfis de navegador (sessões logadas, cookies) e a cópia da extensão gerada ao abrir o JARVIS
+/navegador*/
+/extensao-whatsapp/
+
+# Configuração local do assistente de código
+.claude/
+
+# Sistema / editores
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
