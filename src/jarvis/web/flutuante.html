@@ -1,0 +1,722 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>JARVIS Flutuante</title>
+  <link rel="icon" type="image/png" href="/static/icon.png">
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Os cards (notícias, tabelas, clima...) usam o mesmo visual da janela principal -->
+  <link rel="stylesheet" href="/static/style.css">
+  <style>
+    /* A janela cobre a área de trabalho, mas só as peças aparecem: o resto é recortado (flutuante.py) e o clique
+       passa adiante. As peças têm cantos chanfrados a 45°, como os cards do JARVIS: o recorte do Windows acompanha
+       a borda sem serrilhar (curvas ficariam em "escadinha"). Cada peça pode ser arrastada para qualquer lugar. */
+    :root { --painel: #04121e; --painel-2: #072235; --borda: #1f8aa3; --texto: #cdf6ff; --apagado: #5f8ea0; --c: 12px; }
+    html, body { margin: 0; height: 100%; overflow: hidden; user-select: none; }
+    body { display: block; background: var(--painel); color: var(--texto); font-family: "Rajdhani", "Segoe UI", sans-serif; font-size: 15px; }
+    [hidden] { display: none !important; }
+    #tela { position: fixed; inset: 0; }
+    /* Doca: as peças que você não arrastou ficam empilhadas junto da barra */
+    #doca { position: absolute; display: flex; flex-direction: column; align-items: flex-end; justify-content: flex-end; gap: 8px; }
+    #doca.abaixo { flex-direction: column-reverse; justify-content: flex-start; }
+    .solto { position: absolute !important; margin: 0 !important; }
+    /* Peça HUD: a camada de fora é a borda, a de dentro o painel (mesmo chanfro) */
+    .peca { position: relative; width: 340px; padding: 1.5px; background: linear-gradient(135deg, var(--cyan), var(--borda) 30%, #0d4a5c 70%, var(--borda));
+      clip-path: polygon(0 0, calc(100% - var(--c)) 0, 100% var(--c), 100% 100%, var(--c) 100%, 0 calc(100% - var(--c))); }
+    .peca > .miolo { height: 100%; background: radial-gradient(ellipse at 50% 0%, var(--painel-2), var(--painel) 75%);
+      clip-path: polygon(0 0, calc(100% - var(--c) + 1px) 0, 100% calc(var(--c) - 1px), 100% 100%, calc(var(--c) - 1px) 100%, 0 calc(100% - var(--c) + 1px)); }
+    .peca::after { content: ""; position: absolute; top: 0; left: 0; width: 34px; height: 2px; background: var(--cyan); box-shadow: 0 0 8px var(--cyan); }
+    .peca.alerta { background: linear-gradient(135deg, var(--amber), #a8721c 35%, #4d3510 70%, #a8721c); }
+    .peca.alerta::after { background: var(--amber); box-shadow: 0 0 8px var(--amber); }
+    .rotulo { display: flex; align-items: center; gap: 8px; font-family: "Orbitron", sans-serif; font-size: 9px; letter-spacing: .22em;
+      color: var(--cyan); margin-bottom: 5px; white-space: nowrap; cursor: grab; }
+    .rotulo::after { content: ""; flex: 1; order: 1; height: 1px; background: linear-gradient(90deg, rgba(46,230,255,.4), transparent); }
+    .rotulo button { order: 2; flex: none; }
+    .rotulo > span { min-width: 0; max-width: 85%; overflow: hidden; text-overflow: ellipsis; }
+    .alerta .rotulo { color: var(--amber); }
+    .bt { all: unset; box-sizing: border-box; cursor: pointer; width: 34px; height: 34px; display: grid; place-items: center; color: var(--apagado);
+      border: 1px solid rgba(46,230,255,.18); background: rgba(46,230,255,.04); transition: color .2s, border-color .2s, box-shadow .2s; }
+    .bt:hover, .bt:focus-visible { color: var(--cyan); border-color: rgba(46,230,255,.6); box-shadow: 0 0 10px rgba(46,230,255,.35) inset; }
+    .bt.on { color: var(--cyan); border-color: var(--cyan); box-shadow: 0 0 12px rgba(46,230,255,.45) inset; }
+    .bt.off { color: #3c5866; }
+    .bt:disabled { opacity: .3; cursor: default; }
+    .bt.x { width: 22px; height: 22px; }
+    .bt.x svg { width: 11px; height: 11px; }
+    .bt svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    .bt svg.cheio { fill: currentColor; stroke: none; }
+    /* Barra: escrever · microfone · núcleo · música · voz · abrir.  Modo discreto: só o núcleo (octógono) */
+    #barra { position: absolute; width: auto; height: 64px; cursor: grab; touch-action: none; }
+    #barra .miolo { display: flex; align-items: center; justify-content: center; padding: 0 12px; gap: 6px; }
+    .lado { display: flex; gap: 6px; }
+    #nucleo { width: 60px; height: 60px; cursor: pointer; display: block; }
+    /* Modo discreto: octógono duplo (borda + anel interno), com o núcleo no centro exato */
+    #barra.discreta { width: 74px; height: 74px; --o: 21px;
+      clip-path: polygon(var(--o) 0, calc(100% - var(--o)) 0, 100% var(--o), 100% calc(100% - var(--o)), calc(100% - var(--o)) 100%, var(--o) 100%, 0 calc(100% - var(--o)), 0 var(--o)); }
+    #barra.discreta > .miolo { position: relative; display: block; padding: 0;
+      clip-path: polygon(calc(var(--o) - .5px) 0, calc(100% - var(--o) + .5px) 0, 100% calc(var(--o) - .5px), 100% calc(100% - var(--o) + .5px), calc(100% - var(--o) + .5px) 100%, calc(var(--o) - .5px) 100%, 0 calc(100% - var(--o) + .5px), 0 calc(var(--o) - .5px)); }
+    #barra.discreta > .miolo::before, #barra.discreta > .miolo::after { content: ""; position: absolute; --i: 17.5px;
+      clip-path: polygon(var(--i) 0, calc(100% - var(--i)) 0, 100% var(--i), 100% calc(100% - var(--i)), calc(100% - var(--i)) 100%, var(--i) 100%, 0 calc(100% - var(--i)), 0 var(--i)); }
+    #barra.discreta > .miolo::before { inset: 5px; background: linear-gradient(135deg, rgba(46,230,255,.55), rgba(46,230,255,.12) 45%, rgba(46,230,255,.45)); }
+    #barra.discreta > .miolo::after { inset: 6px; --i: 17.1px; background: radial-gradient(circle, #06263a 0%, var(--painel) 70%); }
+    #barra.discreta .lado, #barra.discreta::after { display: none; }
+    #barra.discreta #nucleo { position: absolute; z-index: 1; width: 60px; height: 60px; left: 50%; top: 50%; transform: translate(-50%, -50%); }
+    /* Balão: o que ele ouviu / está pensando / respondeu, o campo para escrever ou uma confirmação */
+    #balao .miolo { padding: 9px 14px 11px; }
+    #texto { font-size: 15px; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 6; -webkit-box-orient: vertical; overflow: hidden; white-space: pre-wrap; }
+    #form { display: flex; }
+    #campo { flex: 1; min-width: 0; background: rgba(46,230,255,.05); border: 1px solid rgba(46,230,255,.3); color: var(--texto);
+      font: inherit; font-size: 15px; padding: 6px 8px; outline: none; user-select: text; }
+    #campo:focus { border-color: var(--cyan); }
+    #campo::placeholder { color: var(--apagado); }
+    #confirma { display: flex; gap: 8px; margin-top: 9px; }
+    #confirma .bt { width: auto; flex: 1; height: 30px; font-family: "Orbitron", sans-serif; font-size: 10px; letter-spacing: .2em; }
+    #sim { color: #4dffb8; border-color: rgba(77,255,184,.5); }
+    #nao { color: #ff8a95; border-color: rgba(255,77,94,.45); }
+    /* Cards (notícias, tabelas, clima, listas): o card da janela principal, com o mesmo chanfro */
+    .cartao { width: 360px; max-height: 58vh; overflow: auto; background: rgba(6,26,42,.97); animation: none; backdrop-filter: none; }
+    .cartao::-webkit-scrollbar { width: 4px; } .cartao::-webkit-scrollbar-thumb { background: var(--line-strong); }
+    .cartao h3 { cursor: grab; justify-content: flex-start; }
+    .cartao h3 > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+    .cartao .card-tools, .cartao [data-ctx-back] { display: none !important; }
+    .cartao .ctx-table-wrap { max-height: none; }
+    /* Cards de apps (o app de verdade fica encaixado em cima do corpo) e de leitura */
+    .app-peca { width: 380px; }
+    .app-peca.minimizado .app-corpo, .app-peca.minimizado .app-borda { display: none; }
+    .app-peca .rotulo .bt + .bt { margin-left: 4px; }
+    /* Bordas para redimensionar (direita, baixo e o canto) */
+    .app-borda { position: absolute; z-index: 2; }
+    .app-borda.d { top: 24px; right: 0; bottom: 14px; width: 8px; cursor: ew-resize; }
+    .app-borda.b { left: 14px; right: 14px; bottom: 0; height: 8px; cursor: ns-resize; }
+    .app-borda.c { right: 0; bottom: 0; width: 16px; height: 16px; cursor: nwse-resize;
+      background: linear-gradient(135deg, transparent 50%, rgba(46,230,255,.55) 50%, rgba(46,230,255,.55) 60%, transparent 60%,
+        transparent 72%, rgba(46,230,255,.55) 72%, rgba(46,230,255,.55) 82%, transparent 82%); }
+    .app-peca .miolo { padding: 8px 10px 10px; }
+    .app-corpo { position: relative; background: #020a12; overflow: hidden; }
+    .app-corpo > p { color: var(--apagado); padding: 12px; margin: 0; }
+    .app-corpo .leitor { padding: 8px 10px 14px; font-size: 14px; line-height: 1.45; color: var(--texto); }
+    .app-corpo .leitor h1 { font-size: 17px; margin: 2px 0 8px; color: #fff; }
+    .app-corpo .leitor h2 { font-size: 15px; color: var(--cyan); }
+    .app-corpo .leitor img { max-width: 100%; height: auto; display: block; margin: 8px auto; }
+    .app-leitor { height: 100%; overflow: auto; user-select: text; }
+    .app-leitor::-webkit-scrollbar { width: 4px; } .app-leitor::-webkit-scrollbar-thumb { background: var(--line-strong); }
+    /* Player do Spotify */
+    #player .miolo { padding: 9px 12px 0; cursor: grab; }
+    .p-linha { display: flex; gap: 10px; align-items: center; }
+    #pImg { width: 46px; height: 46px; object-fit: cover; border: 1px solid rgba(46,230,255,.3); flex: none; background: #031019; pointer-events: none; }
+    .p-info { flex: 1; min-width: 0; line-height: 1.2; }
+    .p-info b { display: block; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .p-info small { display: block; color: var(--cyan); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .p-ctrl { display: flex; gap: 4px; }
+    .p-ctrl .bt { width: 28px; height: 28px; }
+    .p-ctrl svg { width: 14px !important; height: 14px !important; }
+    .p-tempo { display: flex; align-items: center; gap: 8px; font-family: "Orbitron", sans-serif; font-size: 8px; color: var(--apagado); padding: 7px 0 9px; }
+    .p-barra { flex: 1; height: 3px; background: rgba(46,230,255,.15); }
+    .p-barra i { display: block; height: 100%; width: 0; background: var(--cyan); box-shadow: 0 0 6px var(--cyan); }
+    /* Letra sincronizada */
+    #letra .miolo { padding: 9px 14px 6px; display: flex; flex-direction: column; }
+    #lBody { height: 170px; overflow: hidden; text-align: center; mask-image: linear-gradient(transparent, #000 22%, #000 78%, transparent); }
+    #lBody p { margin: 0; padding: 4px 14px; font-size: 15px; line-height: 1.25; color: rgba(205,246,255,.35); cursor: pointer; transition: color .3s, transform .3s; }
+    #lBody p.past { color: rgba(205,246,255,.55); }
+    #lBody p.now { color: #fff; transform: scale(1.06); text-shadow: 0 0 12px rgba(46,230,255,.75); }
+    #lBody.plain { overflow: auto; mask-image: none; text-align: left; }
+    #lBody.plain p { color: var(--texto); cursor: default; }
+    #lBody::-webkit-scrollbar { width: 0; }
+    .l-msg { color: var(--apagado) !important; cursor: default !important; padding-top: 60px !important; }
+  </style>
+</head>
+<body>
+  <div id="tela">
+    <div id="doca">
+      <div id="balao" class="peca" data-chave="balao" hidden><div class="miolo">
+        <div id="rotulo" class="rotulo alca">J.A.R.V.I.S.</div>
+        <div id="texto"></div>
+        <form id="form" hidden><input id="campo" autocomplete="off" placeholder="Escreva para o JARVIS…" aria-label="Mensagem para o JARVIS"></form>
+        <div id="confirma" hidden><button type="button" class="bt" id="sim">SIM</button><button type="button" class="bt" id="nao">NÃO</button></div>
+      </div></div>
+      <div id="letra" class="peca" data-chave="letra" hidden><div class="miolo">
+        <div class="rotulo alca"><span id="lTitulo">LETRA</span><button type="button" class="bt x" id="lFechar" title="Fechar a letra"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+        <div id="lBody"></div>
+      </div></div>
+      <div id="player" class="peca" data-chave="player" hidden><div class="miolo alca">
+        <div class="p-linha">
+          <img id="pImg" alt="" referrerpolicy="no-referrer">
+          <div class="p-info"><b id="pTitulo">—</b><small id="pArtista"></small></div>
+          <div class="p-ctrl">
+            <button type="button" class="bt" id="pPrev" title="Anterior"><svg class="cheio" viewBox="0 0 24 24"><path d="M6 5h2v14H6V5Zm3.5 7L19 5v14l-9.5-7Z"/></svg></button>
+            <button type="button" class="bt" id="pPlay" title="Tocar/pausar"><svg class="cheio" viewBox="0 0 24 24"><path id="pPlayIcon" d="M8 5v14l11-7L8 5Z"/></svg></button>
+            <button type="button" class="bt" id="pNext" title="Próxima"><svg class="cheio" viewBox="0 0 24 24"><path d="M16 5h2v14h-2V5ZM5 5l9.5 7L5 19V5Z"/></svg></button>
+            <button type="button" class="bt" id="pLetra" title="Letra"><svg viewBox="0 0 24 24"><path d="M4 6h12M4 11h12M4 16h7"/><circle cx="18" cy="17" r="2.2"/><path d="M20.2 17V8"/></svg></button>
+          </div>
+        </div>
+        <div class="p-tempo"><span id="pPos">0:00</span><div class="p-barra"><i id="pFill"></i></div><span id="pDur">0:00</span></div>
+      </div></div>
+    </div>
+    <div id="barra" class="peca"><div class="miolo">
+      <div class="lado">
+        <button type="button" class="bt" id="lapis" title="Escrever"><svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/></svg></button>
+        <button type="button" class="bt" id="mic" title="Falar (clique de novo para fechar)"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg></button>
+      </div>
+      <canvas id="nucleo" title="Clique: abrir o JARVIS · Duplo clique: modo discreto / completo · Arraste para mover"></canvas>
+      <div class="lado dir">
+        <button type="button" class="bt" id="musica" title="Player do Spotify" disabled><svg viewBox="0 0 24 24"><path d="M9 18V5l11-2v13"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/></svg></button>
+        <button type="button" class="bt" id="voz" title="Voz ligada/desligada"><svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9H4z"/><path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/></svg></button>
+      </div>
+    </div></div>
+  </div>
+<script src="/static/core.js"></script>
+<script>
+(function () {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  const nucleo = new window.JarvisCore($("nucleo"));
+  const pref = (k, padrao) => { try { const v = localStorage.getItem(k); return v === null ? padrao : v; } catch (e) { return padrao; } };
+  const salvar = (k, v) => { try { localStorage.setItem(k, v); } catch (e) { /* sem storage */ } };
+  let estado = "idle", voz = true, digitando = false, confirmando = false, respostaAte = 0, timer = null;
+  let discreto = pref("jarvis.flut.modo", "completo") === "discreto";
+
+  // ---------------------------------------------------------------- conversa com a janela principal (pelo servidor)
+  let ws = null;
+  const enviar = (m) => { if (ws && ws.readyState === 1) { ws.send(JSON.stringify(m)); return true; } return false; };
+  function conectar() {
+    ws = new WebSocket(`ws://${location.host}/ws/flutuante`);
+    ws.onopen = () => { ultimo = ""; appsUltimo = ""; informarRegiao(); };
+    ws.onmessage = (e) => { const m = JSON.parse(e.data); if (m.tipo === "estado") aplicar(m); };
+    ws.onclose = () => setTimeout(conectar, 2000);
+  }
+
+  // ---------------------------------------------------------------- formato da janela (o que aparece)
+  // Cada peça vira um polígono com o mesmo chanfro do CSS; o flutuante.py recorta a janela nesse formato.
+  const chanfro = (r, c) => [[r.left, r.top], [r.right - c, r.top], [r.right, r.top + c], [r.right, r.bottom],
+    [r.left + c, r.bottom], [r.left, r.bottom - c]];
+  const octogono = (r, o) => [[r.left + o, r.top], [r.right - o, r.top], [r.right, r.top + o], [r.right, r.bottom - o],
+    [r.right - o, r.bottom], [r.left + o, r.bottom], [r.left, r.bottom - o], [r.left, r.top + o]];
+  let ultimo = "", agendado = false, arrastando = null, rastro = new Map();
+  function informarRegiao() {
+    agendado = false;
+    const formas = [];
+    for (const el of document.querySelectorAll("#tela .peca, #tela .cartao")) {
+      if (el.hidden || !el.offsetParent) continue;
+      const r = el.getBoundingClientRect();
+      formas.push(el.id === "barra" && discreto ? octogono(r, 21) : chanfro(r, el.classList.contains("cartao") ? 14 : 12));
+      // Arrastando: o recorte chega um instante depois do desenho; a posição de um instante atrás continua
+      // no recorte (o navegador já a repintou com o fundo) para a peça não aparecer "comida" (some ao soltar)
+      if (el === arrastando || (arrastando && arrastando.id === "barra" && el.closest("#doca"))) {
+        const a = rastro.get(el);
+        if (a) formas.push(chanfro(a, 12));
+        rastro.set(el, r);
+      }
+    }
+    const vista = [innerWidth, innerHeight];
+    const json = JSON.stringify([formas, devicePixelRatio, vista]);
+    if (json === ultimo) return;
+    ultimo = json;
+    if (enviar({ tipo: "regiao", formas, dpr: devicePixelRatio, vista, redesenhar: !arrastando })) return;
+    fetch("/api/flutuante/regiao", { method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ formas, dpr: devicePixelRatio, vista }) }).catch(() => { ultimo = ""; });
+  }
+  // Durante o arrasto: no máximo uma atualização por quadro
+  const regiaoLogo = () => { if (!agendado) { agendado = true; requestAnimationFrame(informarRegiao); } };
+  new MutationObserver(regiaoLogo).observe($("tela"), { subtree: true, childList: true, attributes: true, attributeFilter: ["hidden", "class"] });
+  new ResizeObserver(regiaoLogo).observe($("doca"));
+  setInterval(informarRegiao, 2000);          // a janela pode ter sido recriada pelo JARVIS
+
+  // ---------------------------------------------------------------- posições (lembradas)
+  // barra: canto inferior direito; peças soltas: canto superior esquerdo. Tudo em px CSS da área de trabalho.
+  let pos = {};
+  try { pos = JSON.parse(pref("jarvis.flut.pos", "{}")) || {}; } catch (e) { pos = {}; }
+  const salvarPos = () => salvar("jarvis.flut.pos", JSON.stringify(pos));
+  const limitar = (v, min, max) => Math.max(min, Math.min(max, v));
+
+  // Monitores (área de trabalho de cada um, em px da página): as peças podem ir para qualquer um deles
+  let telas = [];
+  async function carregarTelas() {
+    try { telas = (await (await fetch("/api/flutuante/telas")).json()).telas || []; } catch (e) { telas = []; }
+    posicionarBarra();
+  }
+  const telaToda = () => ({ x: 0, y: 0, w: innerWidth, h: innerHeight });
+  function telaDe(x, y) {
+    if (!telas.length) return telaToda();
+    const dentro = telas.find((t) => x >= t.x && x < t.x + t.w && y >= t.y && y < t.y + t.h);
+    if (dentro) return dentro;
+    const dist = (t) => Math.hypot(Math.max(t.x - x, 0, x - t.x - t.w), Math.max(t.y - y, 0, y - t.y - t.h));
+    return telas.reduce((a, b) => (dist(b) < dist(a) ? b : a));
+  }
+  const telaPrincipal = () => telas.find((t) => t.principal) || telas[0] || telaToda();
+
+  function posicionarBarra() {
+    const b = $("barra"), w = b.offsetWidth, h = b.offsetHeight;
+    const p = telaPrincipal();
+    const canto = pos.barra || { x: p.x + p.w - 14, y: p.y + p.h - 14 };
+    const t = telaDe(canto.x - w / 2, canto.y - h / 2);
+    b.style.left = `${limitar(canto.x - w, t.x, t.x + t.w - w)}px`;
+    b.style.top = `${limitar(canto.y - h, t.y, t.y + t.h - h)}px`;
+    posicionarDoca();
+  }
+  // A doca fica em cima da barra (ou embaixo, se a barra estiver lá no alto da tela)
+  function posicionarDoca() {
+    const r = $("barra").getBoundingClientRect(), d = $("doca");
+    d.style.right = `${Math.max(0, innerWidth - r.right)}px`;
+    const abaixo = r.top - telaDe(r.left + r.width / 2, r.top + r.height / 2).y < 340;
+    d.classList.toggle("abaixo", abaixo);
+    d.style.bottom = abaixo ? "auto" : `${innerHeight - r.top + 8}px`;
+    d.style.top = abaixo ? `${r.bottom + 8}px` : "auto";
+    regiaoLogo();
+  }
+  function colocar(el, x, y) {
+    const t = telaDe(x + el.offsetWidth / 2, y + 20);          // fica inteira dentro do monitor onde foi solta
+    el.style.left = `${limitar(x, t.x, t.x + t.w - el.offsetWidth)}px`;
+    el.style.top = `${limitar(y, t.y, t.y + t.h - Math.min(el.offsetHeight, t.h))}px`;
+  }
+  function soltar(el) {                        // tira da doca e deixa onde está
+    if (el.classList.contains("solto")) return;
+    const r = el.getBoundingClientRect();
+    $("tela").appendChild(el);
+    el.classList.add("solto");
+    colocar(el, r.left, r.top);
+  }
+  // Ordem na doca (de cima para baixo): balão, cards, letra, player. Peças soltas não servem de referência.
+  function encaixarNaDoca(el) {
+    const doca = $("doca"), naDoca = (id) => ($(id) && $(id).parentElement === doca ? $(id) : null);
+    if (el.id === "balao") doca.prepend(el);
+    else if (el.id === "player") doca.appendChild(el);
+    else if (el.id === "letra") doca.insertBefore(el, naDoca("player"));
+    else doca.insertBefore(el, naDoca("letra") || naDoca("player"));
+  }
+  function voltarParaDoca(el) {                // duplo clique no título: volta para junto da barra
+    if (el.classList.contains("app-peca")) return;            // cards de apps ficam onde você deixar
+    delete pos[el.dataset.chave];
+    salvarPos();
+    el.classList.remove("solto");
+    el.style.left = el.style.top = "";
+    encaixarNaDoca(el);
+    regiaoLogo();
+  }
+  // Mostra uma peça no lugar em que você a deixou da última vez (ou na doca)
+  function mostrar(el) {
+    el.hidden = false;
+    const p = pos[el.dataset.chave];
+    if (p && !el.classList.contains("solto")) { soltar(el); colocar(el, p.x, p.y); }
+    regiaoLogo();
+  }
+
+  // Arrastar: segura pelo título (ou pela barra) e solta em qualquer lugar da tela
+  function arrastavel(el, alca, aoSoltar) {
+    alca.addEventListener("pointerdown", (e) => {
+      if (e.button !== 0 || e.target.closest("button, a, input")) return;
+      e.preventDefault();
+      // Ouve a janela inteira (soltar a peça da doca muda o pai dela e desfaz a captura do ponteiro);
+      // o navegador continua recebendo o mouse fora do recorte enquanto o botão está apertado.
+      const r = el.getBoundingClientRect(), x0 = e.clientX, y0 = e.clientY, inicio = e.target;
+      let moveu = false;
+      const mover = (ev) => {
+        if (!moveu && Math.hypot(ev.clientX - x0, ev.clientY - y0) < 5) return;
+        if (!moveu) { moveu = true; arrastando = el; rastro.clear(); if (el.id !== "barra") soltar(el); }
+        colocar(el, r.left + ev.clientX - x0, r.top + ev.clientY - y0);
+        if (el.id === "barra") posicionarDoca();
+        regiaoLogo();
+        if (el.classList.contains("app-peca")) moverAppLogo(el);
+      };
+      const fim = () => {
+        removeEventListener("pointermove", mover);
+        removeEventListener("pointerup", fim);
+        removeEventListener("pointercancel", fim);
+        if (moveu) {
+          const nr = el.getBoundingClientRect();
+          pos[el.id === "barra" ? "barra" : el.dataset.chave] = el.id === "barra" ? { x: nr.right, y: nr.bottom } : { x: nr.left, y: nr.top };
+          salvarPos();
+          arrastando = null; rastro.clear();
+          if (el.classList.contains("app-peca")) { appsUltimo = ""; relatarApps(); }
+          ultimo = "";                                   // recorte exato na posição final (e de novo, por garantia)
+          informarRegiao();
+          setTimeout(() => { ultimo = ""; informarRegiao(); }, 250);
+        }
+        if (aoSoltar) aoSoltar(moveu, inicio);
+      };
+      addEventListener("pointermove", mover);
+      addEventListener("pointerup", fim);
+      addEventListener("pointercancel", fim);
+    });
+    if (el.id !== "barra") alca.addEventListener("dblclick", (e) => { if (!e.target.closest("button, a")) voltarParaDoca(el); });
+  }
+  for (const el of document.querySelectorAll("#doca > .peca")) arrastavel(el, el.querySelector(".alca"));
+
+  // Barra: arrastar move; um clique no núcleo abre o JARVIS; duplo clique alterna o modo discreto (só o núcleo)
+  let cliqueTimer = null;
+  const abrirJarvis = () => fetch("/api/mostrar", { method: "POST" }).catch(() => {});
+  arrastavel($("barra"), $("barra"), (moveu, alvo) => {
+    if (moveu || !alvo.closest("#nucleo")) return;
+    if (cliqueTimer) { clearTimeout(cliqueTimer); cliqueTimer = null; alternarModo(); return; }
+    cliqueTimer = setTimeout(() => { cliqueTimer = null; abrirJarvis(); }, 280);
+  });
+  function aplicarModo() {
+    $("barra").classList.toggle("discreta", discreto);
+    if (discreto) { fecharCampo(); if (!confirmando) $("balao").hidden = true; }
+    renderPlayer(musica);
+  }
+  function alternarModo() {
+    // O núcleo fica no mesmo lugar: a barra cresce/encolhe em volta dele
+    const n = $("nucleo").getBoundingClientRect(), cx = n.left + n.width / 2, cy = n.top + n.height / 2;
+    discreto = !discreto;
+    salvar("jarvis.flut.modo", discreto ? "discreto" : "completo");
+    aplicarModo();
+    // Mede onde o núcleo ficou dentro da barra no modo novo e põe a barra de forma que ele caia no mesmo ponto
+    const b = $("barra"), br = b.getBoundingClientRect(), nr = $("nucleo").getBoundingClientRect();
+    const dx = nr.left + nr.width / 2 - br.left, dy = nr.top + nr.height / 2 - br.top;
+    pos.barra = { x: cx - dx + br.width, y: cy - dy + br.height };
+    salvarPos();
+    posicionarBarra();
+  }
+  addEventListener("resize", () => {
+    carregarTelas();
+    posicionarBarra();
+    for (const el of document.querySelectorAll(".solto")) colocar(el, el.offsetLeft, el.offsetTop);
+  });
+
+  // ---------------------------------------------------------------- balão
+  const ROTULO = { listening: "OUVINDO", thinking: "PROCESSANDO", speaking: "FALANDO", error: "ERRO" };
+  function balao(texto, rotulo) {
+    if (discreto && !confirmando) return;          // modo discreto: só confirmações aparecem
+    $("rotulo").textContent = "J.A.R.V.I.S." + (rotulo ? " · " + rotulo : "");
+    $("texto").textContent = texto;
+    $("texto").hidden = !texto;
+    mostrar($("balao"));
+  }
+  function fecharBalao() {
+    if (digitando || confirmando) return;
+    $("balao").hidden = true;
+  }
+  // Confirmação (enviar mensagem, fechar janela...): SIM/NÃO aqui mesmo; responder falando também vale
+  function mostrarConfirmacao(texto) {
+    confirmando = true;
+    clearTimeout(timer);
+    $("balao").classList.add("alerta");
+    $("confirma").hidden = false;
+    balao(texto, "CONFIRMAÇÃO");
+  }
+  function fecharConfirmacao() {
+    if (!confirmando) return;
+    confirmando = false;
+    $("balao").classList.remove("alerta");
+    $("confirma").hidden = true;
+    fecharBalao();
+  }
+  $("sim").addEventListener("click", () => { enviar({ tipo: "confirmar", aprovar: true }); fecharConfirmacao(); });
+  $("nao").addEventListener("click", () => { enviar({ tipo: "confirmar", aprovar: false }); fecharConfirmacao(); });
+
+  // Sem o áudio da janela principal, a "voz" do núcleo é simulada enquanto ele fala
+  setInterval(() => nucleo.setLevel(estado === "speaking" ? 0.35 + Math.random() * 0.45 : estado === "listening" ? 0.15 : 0), 120);
+
+  let letraNaPrincipal = null;
+  function aplicar(m) {
+    estado = m.estado || "idle";
+    voz = m.voz !== false;
+    nucleo.setState(estado);
+    $("voz").classList.toggle("off", !voz);
+    $("voz").title = voz ? "Voz ligada (clique para desligar)" : "Voz desligada (clique para ligar)";
+    $("mic").classList.toggle("on", estado === "listening");
+    if (m.cartoes && m.cartoes.length) mostrarCartoes(m.cartoes, !!m.somar);
+    if (m.cartoesApps) sincronizarAppsFlut(m.cartoesApps);
+    // A letra acompanha a janela principal: "Jarvis, mostra a letra" abre aqui também
+    if (m.letra !== undefined && m.letra !== letraNaPrincipal) {
+      letraNaPrincipal = m.letra;
+      if (m.letra) abrirLetra(); else fecharLetra();
+    }
+    if (m.confirmar) { mostrarConfirmacao(m.confirmar); return; }
+    if (confirmando && m.confirmar === "") fecharConfirmacao();
+    if (digitando || confirmando) return;
+    clearTimeout(timer);
+    if (m.resposta) { respostaAte = Date.now() + 12000; balao(m.resposta, ROTULO[estado]); }
+    else if (estado === "thinking") balao("", "PROCESSANDO");
+    else if (estado === "listening") balao(m.ouvido || "Pode falar…", "OUVINDO");
+    else if (estado === "speaking" && Date.now() < respostaAte) $("rotulo").textContent = "J.A.R.V.I.S. · FALANDO";
+    if (estado === "idle") timer = setTimeout(fecharBalao, Math.max(respostaAte - Date.now(), 1500));
+  }
+
+  // ---------------------------------------------------------------- cards (notícias, tabelas, clima...)
+  // O mesmo card da janela principal. Cada um pode ser arrastado; o ✕ fecha; somem sozinhos em 3 min.
+  let cartoesTimer = null;
+  function mostrarCartoes(htmls, somar) {
+    if (!somar) document.querySelectorAll(".cartao").forEach((c) => c.remove());
+    for (const html of htmls) {
+      const tmp = document.createElement("div");
+      tmp.innerHTML = String(html).trim();
+      const card = tmp.firstElementChild;
+      if (!card) continue;
+      card.classList.add("cartao");
+      card.classList.remove("oculto", "pinned", "flash-card");
+      card.removeAttribute("data-card");
+      const h3 = card.querySelector("h3") || card;
+      const titulo = (h3.querySelector("span") || h3).textContent.trim().split(" · ")[0] || "card";
+      card.dataset.chave = "card:" + titulo;
+      const fechar = document.createElement("button");
+      fechar.type = "button"; fechar.className = "bt x"; fechar.title = "Fechar";
+      fechar.innerHTML = '<svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+      fechar.addEventListener("click", () => card.remove());
+      h3.appendChild(fechar);
+      encaixarNaDoca(card);
+      arrastavel(card, h3);
+      mostrar(card);
+    }
+    clearTimeout(cartoesTimer);
+    cartoesTimer = setTimeout(() => document.querySelectorAll(".cartao").forEach((c) => c.remove()), 3 * 60 * 1000);
+  }
+  // Links dos cards (manchetes...) abrem no navegador interno do JARVIS, que aparece
+  // (sem a "bolha" com o endereço no canto: o endereço sai do link quando o mouse chega nele)
+  document.addEventListener("pointerover", (e) => {
+    const a = e.target.closest && e.target.closest("a[href]");
+    if (a && /^https?:/i.test(a.href)) { a.dataset.href = a.href; a.removeAttribute("href"); a.style.cursor = "pointer"; }
+  }, true);
+  document.addEventListener("click", (e) => {
+    const a = e.target.closest(".cartao a[data-href], .cartao a[href]");
+    if (!a) return;
+    e.preventDefault();
+    enviar({ tipo: "abrir_web", url: a.dataset.href || a.href });
+  });
+
+  // ---------------------------------------------------------------- cards de apps (WhatsApp, Instagram...) e de leitura
+  // Os mesmos que estão abertos na janela principal: quando ela é minimizada, eles continuam aqui, arrastáveis.
+  const NOMES = { whatsapp: "WHATSAPP", instagram: "INSTAGRAM", facebook: "FACEBOOK", youtube: "YOUTUBE", navegador: "NAVEGADOR" };
+  function sincronizarAppsFlut(lista) {
+    const ids = new Set(lista.map((c) => c.id));
+    document.querySelectorAll(".app-peca").forEach((p) => { if (!ids.has(p.dataset.id)) p.remove(); });
+    let n = document.querySelectorAll(".app-peca").length;
+    for (const c of lista) {
+      if (document.querySelector(`.app-peca[data-id="${c.id}"]`)) continue;
+      const p = document.createElement("div");
+      p.className = "peca app-peca solto"; p.dataset.id = c.id; p.dataset.chave = "app:" + c.id; p.dataset.app = c.app || "";
+      const tam = tamanhos[c.id] || {};
+      const alt = tam.h || Math.min(c.altura || 420, 560);
+      p.innerHTML = `<div class="miolo"><div class="rotulo alca"><span>${c.tipo === "leitor" ? "LEITURA" : NOMES[c.app] || "APP"}</span>
+        <button type="button" class="bt x min" title="Minimizar / restaurar"><svg viewBox="0 0 24 24"><path d="M6 17h12"/></svg></button>
+        <button type="button" class="bt x" title="Fechar"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+        <div class="app-corpo" style="height:${alt}px">${c.tipo === "leitor" ? '<div class="app-leitor"><p>Carregando…</p></div>' : "<p>Abrindo…</p>"}</div></div>
+        <div class="app-borda d"></div><div class="app-borda b"></div><div class="app-borda c"></div>`;
+      if (tam.w) p.style.width = `${tam.w}px`;
+      $("tela").appendChild(p);
+      p.querySelector(".bt.x:not(.min)").addEventListener("click", () => { enviar({ tipo: "fechar_card_app", id: c.id }); p.remove(); relatarApps(); });
+      p.querySelector(".bt.min").addEventListener("click", () => {
+        const min = p.classList.toggle("minimizado");
+        tamanhos[c.id] = { ...(tamanhos[c.id] || {}), min };
+        salvar("jarvis.flut.tam", JSON.stringify(tamanhos));
+        appsUltimo = ""; relatarApps(); regiaoLogo();
+      });
+      if (tam.min) p.classList.add("minimizado");
+      arrastavel(p, p.querySelector(".alca"));
+      for (const borda of p.querySelectorAll(".app-borda")) redimensionar(p, borda, c.id);
+      // Onde você deixou da última vez; senão, à esquerda da barra, lado a lado
+      const salvo = pos[p.dataset.chave], b = $("barra").getBoundingClientRect();
+      if (salvo) colocar(p, salvo.x, salvo.y);
+      else colocar(p, b.left - 400 - n * 392, b.bottom - p.offsetHeight);
+      n++;
+      if (c.tipo === "leitor") carregarLeitura(p, c.url);
+    }
+    relatarApps();
+  }
+  // Redimensionar pelas bordas (o app encaixado acompanha); o tamanho fica salvo
+  let tamanhos = {};
+  try { tamanhos = JSON.parse(pref("jarvis.flut.tam", "{}")) || {}; } catch (e) { tamanhos = {}; }
+  function redimensionar(p, borda, id) {
+    borda.addEventListener("pointerdown", (e) => {
+      e.preventDefault(); e.stopPropagation();
+      const corpo = p.querySelector(".app-corpo"), x0 = e.clientX, y0 = e.clientY, w0 = p.offsetWidth, h0 = corpo.offsetHeight;
+      const largura = !borda.classList.contains("b"), altura = !borda.classList.contains("d");
+      arrastando = p; rastro.clear();
+      const mover = (ev) => {
+        if (largura) p.style.width = `${Math.max(260, Math.min(1400, w0 + ev.clientX - x0))}px`;
+        if (altura) corpo.style.height = `${Math.max(160, Math.min(1100, h0 + ev.clientY - y0))}px`;
+        regiaoLogo(); relatarAppsLogo();
+      };
+      const fim = () => {
+        removeEventListener("pointermove", mover); removeEventListener("pointerup", fim); removeEventListener("pointercancel", fim);
+        arrastando = null; rastro.clear();
+        tamanhos[id] = { w: p.offsetWidth, h: corpo.offsetHeight };
+        salvar("jarvis.flut.tam", JSON.stringify(tamanhos));
+        ultimo = ""; informarRegiao(); relatarApps();
+      };
+      addEventListener("pointermove", mover); addEventListener("pointerup", fim); addEventListener("pointercancel", fim);
+    });
+  }
+  async function carregarLeitura(p, url) {
+    let d;
+    try { d = await (await fetch("/api/web/ler?url=" + encodeURIComponent(url))).json(); } catch (e) { d = { ok: false, mensagem: "Sem conexão." }; }
+    const alvo = p.querySelector(".app-leitor"), e = (t) => String(t ?? "").replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch]));
+    if (!d.ok) { alvo.innerHTML = `<p>${e(d.mensagem)}</p>`; return; }
+    alvo.innerHTML = `<article class="leitor"><h1>${e(d.titulo)}</h1>` + d.blocos.map((b) => b.tipo === "img"
+      ? `<img src="${e(b.src)}" alt="" referrerpolicy="no-referrer">` : b.tipo === "h" ? `<h2>${e(b.texto)}</h2>` : `<p>${e(b.texto)}</p>`).join("") + "</article>";
+  }
+  // Onde cada app deve ficar (o JARVIS encaixa a janela do app em cima do corpo do card)
+  let appsUltimo = "", appsAgendado = false;
+  function relatarApps() {
+    appsAgendado = false;
+    const slots = {};
+    for (const p of document.querySelectorAll(".app-peca")) {
+      if (!p.dataset.app || p.hidden || p.classList.contains("minimizado")) continue;
+      const r = p.querySelector(".app-corpo").getBoundingClientRect();
+      slots[p.dataset.app] = { rect: [r.left, r.top, r.width, r.height] };
+    }
+    const json = JSON.stringify([slots, devicePixelRatio, innerWidth, innerHeight]);
+    if (json === appsUltimo) return;
+    if (enviar({ tipo: "apps", slots, dpr: devicePixelRatio, vista: [innerWidth, innerHeight] })) appsUltimo = json;
+  }
+  const relatarAppsLogo = () => { if (!appsAgendado) { appsAgendado = true; requestAnimationFrame(relatarApps); } };
+  // Arrastando: só a posição nova deste app, uma vez por quadro (o JARVIS move a janela na hora)
+  let moverAgendado = false;
+  function moverAppLogo(p) {
+    if (moverAgendado || !p.dataset.app || p.classList.contains("minimizado")) return;
+    moverAgendado = true;
+    requestAnimationFrame(() => {
+      moverAgendado = false;
+      const r = p.querySelector(".app-corpo").getBoundingClientRect();
+      enviar({ tipo: "app_mover", app: p.dataset.app, rect: [r.left, r.top, r.width, r.height], dpr: devicePixelRatio });
+    });
+  }
+  setInterval(relatarApps, 1500);
+
+  // ---------------------------------------------------------------- escrever
+  function fecharCampo() { digitando = false; $("form").hidden = true; $("lapis").classList.remove("on"); }
+  $("lapis").addEventListener("click", () => {
+    if (digitando) { fecharCampo(); fecharBalao(); return; }
+    if (confirmando) return;
+    digitando = true;
+    clearTimeout(timer);
+    $("form").hidden = false;
+    $("lapis").classList.add("on");
+    balao("", "ESCREVA");
+    $("campo").focus();
+  });
+  $("form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const texto = $("campo").value.trim();
+    if (!texto) return;
+    enviar({ tipo: "enviar", texto });
+    $("campo").value = "";
+    fecharCampo();
+    balao("", "PROCESSANDO");
+  });
+  $("campo").addEventListener("keydown", (e) => {
+    if (e.key === "Escape") { $("campo").value = ""; fecharCampo(); fecharBalao(); }
+  });
+
+  // ---------------------------------------------------------------- Spotify: player e letra
+  const PLAY = "M8 5v14l11-7L8 5Z", PAUSE = "M6 5h4v14H6V5Zm8 0h4v14h-4V5Z";
+  const fmt = (ms) => { const s = Math.floor((ms || 0) / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
+  let musica = null, musicaEm = 0, playerLigado = pref("jarvis.flut.player", "1") === "1";
+  let letraAberta = false, letra = null, letraIdx = -2;
+  const posicao = () => musica ? Math.min(musica.duracao_ms, musica.progresso_ms + (musica.tocando ? Date.now() - musicaEm : 0)) : 0;
+
+  function renderPlayer(p) {
+    const ativo = !!(p && p.conectado && p.ativo);
+    $("musica").disabled = !ativo;
+    $("musica").classList.toggle("on", ativo && playerLigado);
+    if (!ativo) { musica = null; $("player").hidden = true; fecharLetra(); return; }
+    const trocou = !musica || musica.musica !== p.musica;
+    musica = p; musicaEm = Date.now();
+    if ($("pImg").getAttribute("src") !== p.imagem) $("pImg").src = p.imagem || "";
+    $("pTitulo").textContent = p.musica || "—";
+    $("pArtista").textContent = p.artistas || "";
+    $("pPlayIcon").setAttribute("d", p.tocando ? PAUSE : PLAY);
+    if (playerLigado && !discreto) { if ($("player").hidden) mostrar($("player")); } else $("player").hidden = true;
+    if (trocou && letraAberta) carregarLetra();
+  }
+  async function pollPlayer() {
+    try { renderPlayer(await (await fetch("/api/spotify/player")).json()); } catch (e) { /* JARVIS fora */ }
+    setTimeout(pollPlayer, document.visibilityState === "visible" ? 3000 : 15000);
+  }
+  setInterval(() => {
+    if (!musica) return;
+    const p = posicao();
+    $("pPos").textContent = fmt(p);
+    $("pDur").textContent = fmt(musica.duracao_ms);
+    $("pFill").style.width = musica.duracao_ms ? `${(p / musica.duracao_ms) * 100}%` : "0%";
+    if (letraAberta) sincronizar(p);
+  }, 400);
+
+  async function controle(acao, valor) {
+    try {
+      const d = await (await fetch("/api/spotify/controle", { method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ acao, valor }) })).json();
+      if (d.player) renderPlayer(d.player);
+    } catch (e) { /* JARVIS fora */ }
+  }
+  $("pPlay").addEventListener("click", () => controle("alternar"));
+  $("pNext").addEventListener("click", () => controle("proxima"));
+  $("pPrev").addEventListener("click", () => controle("anterior"));
+  $("musica").addEventListener("click", () => {
+    playerLigado = !playerLigado;
+    salvar("jarvis.flut.player", playerLigado ? "1" : "0");
+    if (!playerLigado) fecharLetra();
+    renderPlayer(musica);
+  });
+
+  function msgLetra(texto) {
+    letra = null;
+    $("lBody").classList.remove("plain");
+    $("lBody").innerHTML = `<p class="l-msg">${texto.replace(/</g, "&lt;")}</p>`;
+  }
+  async function carregarLetra() {
+    if (!musica) { msgLetra("Nada tocando no Spotify agora."); return; }
+    $("lTitulo").textContent = `LETRA · ${musica.musica}`.toUpperCase();
+    msgLetra("Buscando a letra…");
+    letraIdx = -2;
+    const pedida = musica.musica;
+    let d;
+    try { d = await (await fetch("/api/spotify/letra")).json(); } catch (e) { msgLetra("Sem conexão com o JARVIS."); return; }
+    if (!musica || musica.musica !== pedida) return;              // trocou de música no meio da busca
+    if (!d.ok) { msgLetra(d.mensagem || "Não encontrei a letra desta música."); return; }
+    if (d.instrumental) { msgLetra("Música instrumental — sem letra."); return; }
+    letra = d;
+    const body = $("lBody");
+    body.innerHTML = "";
+    body.classList.toggle("plain", !d.sincronizada);
+    for (const l of d.linhas) {
+      const p = document.createElement("p");
+      p.textContent = l.texto || "♪";
+      if (l.t != null) p.dataset.t = l.t;
+      body.appendChild(p);
+    }
+    body.scrollTop = 0;
+    sincronizar(posicao());
+  }
+  function sincronizar(p) {
+    if (!letra || !letra.sincronizada) return;
+    let i = -1;
+    for (let k = 0; k < letra.linhas.length && letra.linhas[k].t <= p + 200; k++) i = k;
+    if (i === letraIdx) return;
+    letraIdx = i;
+    const body = $("lBody"), ps = body.children;
+    for (let k = 0; k < ps.length; k++) { ps[k].classList.toggle("now", k === i); ps[k].classList.toggle("past", k < i); }
+    const el = ps[Math.max(i, 0)];
+    if (el) body.scrollTo({ top: el.offsetTop - body.offsetTop - body.clientHeight / 2 + el.clientHeight / 2, behavior: "smooth" });
+  }
+  function abrirLetra() {
+    if (letraAberta) return;
+    letraAberta = true;
+    mostrar($("letra"));
+    $("pLetra").classList.add("on");
+    carregarLetra();
+  }
+  function fecharLetra() {
+    if (!letraAberta) return;
+    letraAberta = false;
+    $("letra").hidden = true;
+    $("pLetra").classList.remove("on");
+  }
+  $("pLetra").addEventListener("click", () => (letraAberta ? fecharLetra() : abrirLetra()));
+  $("lFechar").addEventListener("click", fecharLetra);
+  $("lBody").addEventListener("click", (e) => {
+    const p = e.target.closest("p[data-t]");
+    if (p) controle("posicao", Number(p.dataset.t));
+  });
+
+  // ---------------------------------------------------------------- botões e início
+  $("mic").addEventListener("click", () => enviar({ tipo: "mic" }));
+  $("voz").addEventListener("click", () => enviar({ tipo: "voz", ligado: !voz }));
+  aplicarModo();
+  posicionarBarra();
+  carregarTelas();
+  conectar();
+  pollPlayer();
+})();
+</script>
+</body>
+</html>
