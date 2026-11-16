@@ -14,6 +14,11 @@ mkdir -p "$REPORT_DIR" "$ROOT/logs"
 
 LIM_CPU=85; LIM_MEM=90; LIM_DISK=90
 while [ $# -gt 0 ]; do
+  # Cada --limite-* precisa de um número inteiro logo depois (ex.: --limite-cpu 90)
+  if [[ "$1" == --limite-* ]] && ! [[ "${2:-}" =~ ^[0-9]+$ ]]; then
+    echo "Valor inválido para $1: use um número inteiro (ex.: $1 90)" >&2
+    exit 2
+  fi
   case "$1" in
     --limite-cpu)   LIM_CPU="$2"; shift 2 ;;
     --limite-mem)   LIM_MEM="$2"; shift 2 ;;
