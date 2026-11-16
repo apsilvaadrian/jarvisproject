@@ -429,6 +429,7 @@ diretamente:
 | `scripts/setup.sh` / `setup.ps1` | Verifica o Python, cria o ambiente virtual, instala dependências, cria `.env` e as pastas com permissões restritas |
 | `scripts/run.sh {start\|stop\|restart\|status\|logs\|cli}` / `run.ps1` | Inicia o servidor em segundo plano (`nohup`), grava o PID em `run/jarvis.pid`, aguarda o *health check*, para com SIGTERM/SIGKILL, mostra o estado do processo com `ps` |
 | `scripts/monitor.sh` / `monitor.ps1` | Monitor **independente do Python**: lê `/proc/stat`, `/proc/loadavg`, `free`, `df`, `ps`, `/sys/class/thermal`; grava `reports/monitor_AAAAMMDD_HHMMSS.txt`, registra alertas em `logs/alertas.log`, mantém os 30 relatórios mais recentes e retorna código de saída 1 se houver alerta |
+| `scripts/backup.sh [--manter N]` | Compacta `data/` e `logs/` em `backups/jarvis_AAAA-MM-DD_HHMMSS.tar.gz` (ou na pasta de `JARVIS_BACKUP_DIR`), com permissão 600 (`umask 077`); mantém os N mais recentes (padrão 7) e apaga os antigos; registra cada execução em `logs/backup.log`; usa `flock` para não rodar dois backups ao mesmo tempo |
 
 Exemplos:
 
@@ -442,6 +443,24 @@ Agendamento do monitor a cada 30 minutos com `cron` (`crontab -e`):
 ```cron
 */30 * * * * /caminho/para/jarvis/scripts/monitor.sh >> /caminho/para/jarvis/logs/cron.log 2>&1
 ```
+
+### Backup
+
+```bash
+./scripts/backup.sh                                  # backup agora, mantém os 7 mais recentes
+./scripts/backup.sh --manter 14                      # mantém os 14 mais recentes
+JARVIS_BACKUP_DIR=/media/hd-externo ./scripts/backup.sh   # grava em outra pasta (ex.: HD externo)
+tar -tzf backups/jarvis_AAAA-MM-DD_HHMMSS.tar.gz     # lista o que tem dentro
+tar -xzf backups/jarvis_AAAA-MM-DD_HHMMSS.tar.gz     # restaura (na pasta do projeto; sobrescreve data/ e logs/)
+```
+
+Agendamento todo dia às 2h com `cron` (`crontab -e`):
+
+```cron
+0 2 * * * /caminho/para/jarvis/scripts/backup.sh >> /caminho/para/jarvis/logs/cron.log 2>&1
+```
+
+Códigos de saída: 0 = backup feito, 1 = falha ou outro backup em andamento, 2 = opção inválida.
 
 Também é possível gerar o relatório pelo Python: `python -m jarvis relatorio`, ou pela voz: "gere um relatório".
 

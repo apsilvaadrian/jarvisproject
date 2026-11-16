@@ -20,6 +20,7 @@ logs/
 reports/
 run/
 data/
+backups/
 build_log.txt
 
 # Perfis de navegador (sessões logadas, cookies) e a cópia da extensão gerada ao abrir o JARVIS
