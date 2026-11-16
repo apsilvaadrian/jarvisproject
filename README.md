@@ -59,6 +59,9 @@ As contribuições de cada um aparecem no histórico de commits e no [CHANGELOG]
 | **Arquivo compartilhado entre processos** | O banco SQLite do MHnet Notifier é aberto em **somente leitura** (`mode=ro`) enquanto o Notifier escreve nele; outro programa (StatusRobotReport) é iniciado num **console próprio** (`CREATE_NEW_CONSOLE`) | `massivas.py`, `trabalho.py` |
 | **Agendamento de tarefas** | `monitor.sh` pronto para `cron`; `monitor.ps1` para o Agendador de Tarefas; desligamento agendado via `shutdown` | `scripts/` |
 
+Cada conceito explicado com o trecho do código e o comando Linux equivalente (`ps`, `top`, `free`, `df`, `kill`,
+`chmod`...): [docs/conceitos-so.md](docs/conceitos-so.md).
+
 ## 5. Funcionalidades
 
 - **Interface "Command Center"** com abas: *Command Center* (núcleo + cards), *AI Core* (escolher e configurar
