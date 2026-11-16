@@ -474,7 +474,7 @@ source .venv/bin/activate      # Windows: .venv\Scripts\activate
 pytest -v
 ```
 
-São **291 testes em 23 arquivos**. Eles rodam isolados (`conftest.py` cria pastas temporárias e desliga os
+São **304 testes em 24 arquivos**. Eles rodam isolados (`conftest.py` cria pastas temporárias e desliga os
 cérebros online), sem chamadas de rede reais (respostas simuladas) e sem enviar nada de verdade.
 
 **Sistema Operacional (o foco da disciplina)**
@@ -492,6 +492,10 @@ cérebros online), sem chamadas de rede reais (respostas simuladas) e sem enviar
   `start`/`status`/`stop` com um servidor falso, `SIGKILL` quando o processo ignora o `SIGTERM`, relatório
   com permissão 640, alerta com código de saída 1 e rotação dos 30 relatórios. Os testes que dependem de
   `/proc`, `ps` e sinais POSIX só rodam no Linux; no Windows, os outros usam o Git Bash.
+- `test_backup.py`: `backup.sh` numa cópia temporária do projeto: validação do `--manter` (antes de criar
+  qualquer coisa), backup que pode ser restaurado, permissão 600/700 pelo `umask 077`, destino pela variável
+  `JARVIS_BACKUP_DIR`, rotação, trava `flock` contra dois backups ao mesmo tempo e falha do `tar` sem deixar
+  arquivo pela metade. Os testes de backup de verdade precisam do `flock` (Linux).
 - `test_apps.py`: controle de janelas de outros programas (UI Automation) e quais ações pedem confirmação.
 - `test_massivas.py`: leitura **somente leitura** de um banco SQLite que outro programa está usando.
 - `test_navegador.py`: escolha do navegador (Chrome, Edge de reserva) e perfis separados por janela.
