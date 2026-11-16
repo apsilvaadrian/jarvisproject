@@ -10,6 +10,7 @@ Todas as mudanças relevantes do projeto, por versão ([versionamento semântico
 
 - Validação dos scripts no Linux, script de backup e documentação dos conceitos de SO (Igor Correa).
 - Roteiro de verificação executado, novos testes, prints e diagrama da arquitetura (Gustavo Marini).
+- Verificação manual no Windows registrada em `docs/verificacao.md` (Gustavo Marini).
 
 ## [0.6.0] — Janelinha flutuante e apps internos
 
