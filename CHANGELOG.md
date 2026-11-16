@@ -21,6 +21,7 @@ Todas as mudanças relevantes do projeto, por versão ([versionamento semântico
 - Testes do `backup.sh` em `tests/test_backup.py` (Gustavo Marini).
 - Diagramas da arquitetura (camadas, processos e fluxo de uma ação sensível) em `docs/arquitetura.md` e
   seção "Arquitetura" do README atualizada (Gustavo Marini).
+- Prints da verificação manual (terminal e interface) em `docs/img/` (Gustavo Marini).
 
 ## [0.6.0] — Janelinha flutuante e apps internos
 

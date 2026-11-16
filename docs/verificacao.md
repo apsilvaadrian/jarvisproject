@@ -3,7 +3,11 @@
 Execução do roteiro de demonstração do README (seção 9, "Verificação manual"), feita por **Gustavo Marini**
 em 16/11/2026.
 
-> Os prints da interface e dos terminais serão acrescentados em `docs/img/` num próximo commit.
+> **Sobre os prints:** são de uma segunda execução do mesmo roteiro, no mesmo dia (por volta das 12h20). Por
+> isso os PIDs e as porcentagens das imagens não são os mesmos do texto. As telas do terminal são capturas da
+> janela do PowerShell que executou os comandos. As da interface foram tiradas num Edge headless (sem janela)
+> em 1366×768, digitando os comandos na caixa "Falar com o JARVIS". No print do monitor, a linha com o nome do
+> computador e do usuário foi filtrada (`Where-Object`), e o comando mostra o filtro.
 
 ## Ambiente
 
@@ -56,6 +60,8 @@ O arquivo de PID guarda o pai. Isso não causa problema no `stop` (ver passo 7).
 > Conceitos de SO: **criação de processos** e hierarquia **pai/filho** (PID e PPID); **arquivo de PID**
 > para controlar um serviço em segundo plano; **variáveis de ambiente** (`PYTHONPATH`, lido do script).
 
+![run.ps1 start e status](img/01-run-start-status.png)
+
 
 ### 2. CPU e memória nos painéis
 
@@ -67,6 +73,8 @@ Foi gerada uma carga artificial de 25 s (6 tarefas em laço de cálculo) enquant
 > Conceito de SO: **escalonamento de CPU**. Várias tarefas disputando os núcleos aparecem como uso alto
 > medido pelo sistema (o JARVIS lê esses números com o `psutil`).
 
+![Painel com a CPU em 100% durante a carga](img/02-painel-cpu.png)
+
 
 ### 3. Processos que mais consomem memória
 
@@ -77,6 +85,8 @@ Mensagem: `quais processos estão consumindo mais memória?`
 
 > Conceito de SO: **gerência de memória**. Cada processo tem o seu *working set* (memória física em uso),
 > o mesmo valor que o Gerenciador de Tarefas e o `ps`/`top` do Linux mostram.
+
+![Resposta com os processos que mais usam memória](img/03-processos-memoria.png)
 
 
 ### 4. Abrir e encerrar a calculadora
@@ -92,6 +102,8 @@ Mensagens: `abra a calculadora` e depois `encerre o processo CalculatorApp`.
 
 > Conceitos de SO: **encerramento de processos** (no Windows, `TerminateProcess`; no Linux, os sinais
 > `SIGTERM`/`SIGKILL`) e **controle de acesso**: uma ação destrutiva só acontece com autorização do usuário.
+
+![Modal de autorização para encerrar a calculadora](img/04-modal-confirmacao.png)
 
 
 ### 5. Spotify
@@ -125,6 +137,8 @@ powershell -ExecutionPolicy Bypass -File scripts\monitor.ps1
 > Conceitos de SO: **sistema de arquivos** (relatórios com data no nome e rotação dos 30 mais recentes),
 > **logs** de auditoria e **código de saída** de processo.
 
+![Saída do monitor.ps1 com alerta e código de saída 1](img/05-monitor-relatorio.png)
+
 
 ### 7. Parar o servidor
 
@@ -144,6 +158,8 @@ com encerrar um **grupo de processos** no Linux.
 **Diferença em relação ao README:** o README diz que o `stop` usa SIGTERM, o que vale para o `run.sh`
 (Linux). No Windows, o `Stop-Process` chama `TerminateProcess`, que encerra na hora, sem dar ao programa a
 chance de terminar de forma organizada.
+
+![run.ps1 stop e status](img/06-run-stop.png)
 
 
 ## Testes automatizados (mesmo dia, mesma máquina)
