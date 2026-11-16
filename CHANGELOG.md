@@ -12,6 +12,11 @@ Todas as mudanças relevantes do projeto, por versão ([versionamento semântico
 - Roteiro de verificação executado, novos testes, prints e diagrama da arquitetura (Gustavo Marini).
 - Verificação manual no Windows registrada em `docs/verificacao.md` (Gustavo Marini).
 - Testes de erro da análise de pasta em `tests/test_analise_pasta.py` (Gustavo Marini).
+- Scripts `.sh` validados no Ubuntu 24.04; `monitor.sh` corrigido para Linux em português (memória lida do
+  `/proc/meminfo`) e com validação dos limites passados por parâmetro (Igor Correa).
+- `scripts/backup.sh`: backup de `data/` e `logs/` por data, com rotação dos antigos, trava com `flock` e pronto
+  para o `cron` (Igor Correa).
+- `docs/conceitos-so.md`: cada conceito de SO com o trecho do código e o comando Linux equivalente (Igor Correa).
 
 ## [0.6.0] — Janelinha flutuante e apps internos
 
