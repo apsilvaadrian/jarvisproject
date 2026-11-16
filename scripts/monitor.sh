@@ -65,7 +65,9 @@ cpu_usage() {
 
   echo "[MEMÓRIA]"
   free -h | sed 's/^/  /'
-  MEM="$(free | awk '/^Mem:/ {printf "%d", ($2-$7)*100/$2}')"
+  # Lê do /proc/meminfo (de onde o free tira os números): a saída do free muda com o idioma
+  # ("Mem.:" em pt_BR), mas os nomes do /proc não. Uso real = (total - disponível) / total.
+  MEM="$(awk '/^MemTotal:/ {t=$2} /^MemAvailable:/ {a=$2} END {printf "%d", (t-a)*100/t}' /proc/meminfo)"
   echo "  Uso real : ${MEM}%"
   [ "$MEM" -ge "$LIM_MEM" ] && alert "Memória em ${MEM}% (limite ${LIM_MEM}%)"
   echo
