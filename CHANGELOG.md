@@ -17,6 +17,7 @@ Todas as mudanças relevantes do projeto, por versão ([versionamento semântico
 - `scripts/backup.sh`: backup de `data/` e `logs/` por data, com rotação dos antigos, trava com `flock` e pronto
   para o `cron` (Igor Correa).
 - `docs/conceitos-so.md`: cada conceito de SO com o trecho do código e o comando Linux equivalente (Igor Correa).
+- Testes dos scripts `run.sh` e `monitor.sh` em `tests/test_scripts_shell.py` (Gustavo Marini).
 
 ## [0.6.0] — Janelinha flutuante e apps internos
 

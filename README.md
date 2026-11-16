@@ -474,7 +474,7 @@ source .venv/bin/activate      # Windows: .venv\Scripts\activate
 pytest -v
 ```
 
-São **275 testes em 22 arquivos**. Eles rodam isolados (`conftest.py` cria pastas temporárias e desliga os
+São **291 testes em 23 arquivos**. Eles rodam isolados (`conftest.py` cria pastas temporárias e desliga os
 cérebros online), sem chamadas de rede reais (respostas simuladas) e sem enviar nada de verdade.
 
 **Sistema Operacional (o foco da disciplina)**
@@ -487,6 +487,11 @@ cérebros online), sem chamadas de rede reais (respostas simuladas) e sem enviar
 - `test_analise_pasta.py`: análise de pasta nos casos de erro: pasta inexistente, arquivo no lugar de pasta,
   arquivo e subpasta sem permissão (`chmod 000`, só no Linux), pasta grande demais (resultado parcial), `~`
   vindo da variável de ambiente, link simbólico e o erro registrado no log de auditoria.
+- `test_scripts_shell.py`: `run.sh` e `monitor.sh` rodando de verdade numa cópia temporária do projeto:
+  sintaxe (`bash -n`), bit de execução no Git, opções e limites inválidos (código de saída 2), arquivo de PID antigo,
+  `start`/`status`/`stop` com um servidor falso, `SIGKILL` quando o processo ignora o `SIGTERM`, relatório
+  com permissão 640, alerta com código de saída 1 e rotação dos 30 relatórios. Os testes que dependem de
+  `/proc`, `ps` e sinais POSIX só rodam no Linux; no Windows, os outros usam o Git Bash.
 - `test_apps.py`: controle de janelas de outros programas (UI Automation) e quais ações pedem confirmação.
 - `test_massivas.py`: leitura **somente leitura** de um banco SQLite que outro programa está usando.
 - `test_navegador.py`: escolha do navegador (Chrome, Edge de reserva) e perfis separados por janela.
