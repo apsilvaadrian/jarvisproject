@@ -225,35 +225,65 @@ Com um cérebro de IA conectado, a conversa é livre ("Jarvis, meu PC está lent
 
 ## 6. Arquitetura
 
+```mermaid
+flowchart TB
+    usuario["Usuário<br/>voz ou texto"]
+    ui["Interface web (src/jarvis/web)<br/>núcleo animado, cards, janelinha flutuante<br/>reconhecimento e síntese de voz do navegador"]
+    server["server.py: FastAPI + WebSocket<br/>envia stats a cada 1,5 s"]
+    assistant["assistant.py<br/>histórico, confirmações, fallback offline"]
+    brain["brain/<br/>Claude · GPT · Gemini · Groq · OpenRouter · Ollama<br/>contas (CLIs) · local (offline)"]
+    tools["tools.py<br/>ferramentas + confirmação + auditoria"]
+    mon["system_monitor.py<br/>CPU, RAM, discos, rede, processos"]
+    osc["os_control.py<br/>processos, apps, arquivos, energia"]
+    integ["spotify · whatsapp · integrações<br/>web · apps · trabalho"]
+    vozsrv["Servidor de voz clonada<br/>outro processo · porta 8001"]
+    kernel["Sistema operacional<br/>processos, sinais, /proc, /sys, APIs do Windows"]
+    fs[("Arquivos<br/>.env · data/ · logs/ · reports/ · run/ · backups/")]
+    scripts["scripts/<br/>run · monitor · backup · cron"]
+
+    usuario --> ui
+    ui <-->|"WebSocket /ws"| server
+    server --> assistant --> brain
+    brain -->|"tool calling"| tools
+    tools --> osc
+    tools --> mon
+    tools --> integ
+    server --> mon
+    server <-->|"HTTP local"| vozsrv
+    mon --> kernel
+    osc --> kernel
+    tools -->|"acoes.jsonl"| fs
+    scripts -->|"PID, SIGTERM/SIGKILL"| server
+    scripts --> kernel
+    scripts --> fs
 ```
- Navegador (interface)                          Servidor Python (FastAPI)
- ┌──────────────────────────┐   WebSocket   ┌───────────────────────────────────┐
- │ núcleo (canvas) · painéis│◄─────────────►│ server.py ── stats a cada 1,5 s   │
- │ voz: SpeechRecognition   │  chat/stats/  │      │                            │
- │      speechSynthesis     │  confirmação  │ assistant.py (histórico, fallback)│
- └──────────────────────────┘               │      │                            │
-                                            │ brain/ claude · openai · gemini · │
-                                            │        local (regex offline)      │
-                                            │      │ tool calling               │
-                                            │ tools.py (registro + confirmação) │
-                                            │   ├─ system_monitor.py (psutil)   │
-                                            │   ├─ os_control.py (SO)           │
-                                            │   ├─ spotify.py (Web API)         │
-                                            │   └─ report.py / logger.py        │
-                                            └───────────────────────────────────┘
-```
+
+- A **interface** nunca acessa o SO diretamente: tudo passa pelo servidor, por WebSocket.
+- O **cérebro** só escolhe *qual* ferramenta usar. Quem executa é o `tools.py`, que pede confirmação antes
+  das ações destrutivas e registra cada uma em `logs/acoes.jsonl`.
+- Os **scripts** funcionam sem o Python: iniciam e param o servidor pelo arquivo de PID, monitoram o sistema
+  e fazem backup, e podem ser agendados no `cron`.
+
+Os detalhes ficam em [docs/arquitetura.md](docs/arquitetura.md): as camadas, os **processos** (quem cria
+quem e como eles se comunicam) e o caminho completo de uma ação sensível ("encerre o processo calc").
 
 ```
 .
 ├── src/jarvis/          # código-fonte
-│   ├── brain/           # cérebros (Claude, GPT, Gemini, offline)
+│   ├── brain/           # cérebros (APIs, contas pelas CLIs, offline)
 │   └── web/             # interface (HTML, CSS, JS)
-├── scripts/             # setup, execução e monitor (Bash e PowerShell)
+├── voz/                 # servidor de voz clonada (processo separado, opcional)
+├── scripts/             # setup, execução, monitor e backup (Bash e PowerShell)
 ├── tests/               # testes automatizados (pytest)
-├── docs/                # documentação complementar
+├── docs/                # arquitetura, conceitos de SO, protocolo WebSocket, verificação manual
+├── assets/              # ícones do aplicativo
+├── run.py               # atalho: python run.py (sem configurar PYTHONPATH)
+├── jarvis_app.py        # ponto de entrada do JARVIS.exe
 ├── .env.example         # modelo de configuração
 ├── requirements.txt
 └── README.md
+
+Criados ao rodar (fora do Git): .venv/ · .env · data/ · logs/ · reports/ · run/ · backups/
 ```
 
 ## 7. Instalação e execução
