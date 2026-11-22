@@ -8,8 +8,9 @@ Todas as mudanças relevantes do projeto, por versão ([versionamento semântico
 
 ## [Não lançado]
 
-- Validação dos scripts no Linux, script de backup e documentação dos conceitos de SO (Igor Correa).
-- Roteiro de verificação executado, novos testes, prints e diagrama da arquitetura (Gustavo Marini).
+## [1.0.0] — 2026-11-22 — Entrega do Projeto Integrador
+
+- Scripts `.sh` com permissão de execução no Git (no Linux, `./scripts/setup.sh` dava "permissão negada") (Adrian Silva).
 - Verificação manual no Windows registrada em `docs/verificacao.md` (Gustavo Marini).
 - Testes de erro da análise de pasta em `tests/test_analise_pasta.py` (Gustavo Marini).
 - Scripts `.sh` validados no Ubuntu 24.04; `monitor.sh` corrigido para Linux em português (memória lida do
