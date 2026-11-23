@@ -8,7 +8,7 @@ Todas as mudanças relevantes do projeto, por versão ([versionamento semântico
 
 ## [Não lançado]
 
-- Documentação do projeto em PDF: `docs/documentacao.pdf` (Adrian Silva).
+- Documentação do projeto em PDF, no modelo ABNT da disciplina: `docs/documentacao.pdf` (Adrian Silva).
 
 ## [1.0.0] — 2026-11-22 — Entrega do Projeto Integrador
 
