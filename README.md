@@ -97,8 +97,8 @@ Cada conceito explicado com o trecho do código e o comando Linux equivalente (`
 - **Navegador do JARVIS**: a aba NAVEGADOR do painel APPS é um Chrome/Edge de verdade (Google) dentro da interface,
   para pesquisas manuais, com ◂ ▸ ↻ e barra de endereço/pesquisa; "pesquisa X aqui" abre a busca nele e o JARVIS
   consegue ler a página aberta para responder. Todo site aberto nele ganha o tom azul do JARVIS.
-- **Apelidos e avisos sob controle**: "chama a Gabi Pedra Home Office MH de Gabi" (vale nos comandos e nos avisos);
-  "para de me avisar da Gabi / do grupo X / do Instagram" e "volta a avisar..." (`avisos.py`, data/avisos.json).
+- **Apelidos e avisos sob controle**: "chama a Bia Souza Escritório SP de Bia" (vale nos comandos e nos avisos);
+  "para de me avisar da Bia / do grupo X / do Instagram" e "volta a avisar..." (`avisos.py`, data/avisos.json).
   Conversas silenciadas no próprio WhatsApp já não geram aviso.
 - **Navegador interno**: manchetes e links dos cards abrem dentro do JARVIS ("abre essa notícia" também). Modo
   LEITURA (o texto da notícia no visual do JARVIS) ou PÁGINA (o site original, sem scripts, num iframe isolado);
@@ -119,7 +119,7 @@ Cada conceito explicado com o trecho do código e o comando Linux equivalente (`
   mensagem pro grupo da família" → "o que devo dizer?" → "que vou atrasar"). O pedido vai direto para a ferramenta
   (não depende da IA) e **só envia depois do seu "sim"**. Com a **extensão do JARVIS** no Chrome/Edge
   (Integrações → WhatsApp → Preparar extensão → "Carregar sem compactação" → pasta
-  `C:SERS<VOCê>APPDATAROAMINGJARVISEXTENSAO-WHATSAPP`, CRIADA AO ABRIR O JARVIS), ele usa **o WhatsApp Web que já está
+  `%APPDATA%\JARVIS\extensao-whatsapp`, criada ao abrir o JARVIS), ele usa **o WhatsApp Web que já está
   aberto e logado no seu navegador**, dentro da aba, sem roubar o foco (a extensão fala com o JARVIS só por
   `ws://127.0.0.1/ws/whatsapp`, e o JARVIS só aceita conexões de extensão ali). Sem a extensão, usa o
   **WhatsApp Web numa janela
